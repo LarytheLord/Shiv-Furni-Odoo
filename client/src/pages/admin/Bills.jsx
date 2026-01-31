@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { Plus, Search, MoreHorizontal, Receipt, Calendar, User, DollarSign } from 'lucide-react';
+import ConflictResolutionModal from '../../components/analytics/ConflictResolutionModal';
 
 export default function Bills() {
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedConflictBillId, setSelectedConflictBillId] = useState(null);
 
   useEffect(() => { fetchBills(); }, []);
 
@@ -45,7 +47,20 @@ export default function Bills() {
                   <td><div className="cell-with-icon"><User size={14} /><span>{b.vendor?.name || '—'}</span></div></td>
                   <td><div className="cell-with-icon"><Calendar size={14} /><span>{new Date(b.billDate).toLocaleDateString()}</span></div></td>
                   <td><span className="amount expense">{fmt(b.totalAmount)}</span></td>
-                  <td><span className="badge" style={{background: st.bg, color: st.color}}>{b.status}</span></td>
+                  <td>
+                      <span className="badge" style={{background: st.bg, color: st.color}}>{b.status}</span>
+                      {b.needsReview && (
+                          <button 
+                              className="ml-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded cursor-pointer hover:bg-orange-200 border border-orange-200"
+                              onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedConflictBillId(b.id);
+                              }}
+                          >
+                              Needs Review
+                          </button>
+                      )}
+                  </td>
                   <td><button className="icon-btn"><MoreHorizontal size={18} /></button></td>
                 </tr>
               );
@@ -95,6 +110,17 @@ export default function Bills() {
         .empty-state p { font-size: 0.875rem; color: #64748b; margin: 0; }
         @media (max-width: 768px) { .page-header { flex-direction: column; gap: 1rem; } .search-box { max-width: none; } .table th:nth-child(3), .table td:nth-child(3) { display: none; } }
       `}</style>
+      {selectedConflictBillId && (
+          <ConflictResolutionModal 
+              billId={selectedConflictBillId} 
+              onClose={() => setSelectedConflictBillId(null)}
+              onResolve={() => {
+                  fetchBills();
+                  // Optional: Don't close immediately if you want to resolve multiple lines?
+                  // Modal handles list updates. If empty, it might close.
+              }}
+          />
+      )}
     </div>
   );
 }

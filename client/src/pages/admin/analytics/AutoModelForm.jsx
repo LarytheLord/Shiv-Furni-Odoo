@@ -44,6 +44,19 @@ export default function AutoModelForm() {
                     </div>
 
                     <div className="col-span-2">
+                        <h3 className="text-sm font-bold text-slate-700 border-b pb-2 mb-4 uppercas mt-4">ML Parameters</h3>
+                        <p className="text-xs text-slate-500 mb-2">Select which fields the AI model should use for prediction:</p>
+                        <div className="flex gap-4">
+                            {['Product', 'Partner', 'Amount', 'Date', 'Description'].map(param => (
+                                <label key={param} className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" defaultChecked={['Product', 'Partner'].includes(param)} className="accent-indigo-600" />
+                                    <span>{param}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="col-span-2">
                         <h3 className="text-sm font-bold text-slate-700 border-b pb-2 mb-4 uppercas mt-4">Target</h3>
                     </div>
 
