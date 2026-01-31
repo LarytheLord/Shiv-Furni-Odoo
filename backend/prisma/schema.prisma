@@ -231,12 +231,25 @@ model Budget {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  // Revision Tracking
+  originalBudgetId String?   @unique
+  originalBudget   Budget?   @relation("BudgetRevisions", fields: [originalBudgetId], references: [id])
+  revisedBudget    Budget?   @relation("BudgetRevisions")
+  
+  revisionNumber   Int       @default(0)
+  revisionDate     DateTime?
+
   // Relations
   budgetLines BudgetLine[]
-  revisions   BudgetRevision[]
+  revisions   BudgetRevision[] // Keeping this for historical log if needed, or could be removed if using full Budget copy
   alerts      BudgetAlert[]
 
   @@map("budgets")
+}
+
+enum BudgetLineType {
+  INCOME
+  EXPENSE
 }
 
 model BudgetLine {
@@ -245,8 +258,13 @@ model BudgetLine {
   budget              Budget            @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   analyticalAccountId String
   analyticalAccount   AnalyticalAccount @relation(fields: [analyticalAccountId], references: [id])
+  
+  type                    BudgetLineType @default(EXPENSE)
 
   plannedAmount         Decimal  @db.Decimal(12, 2)
+  achievedAmount          Decimal   @default(0) @db.Decimal(12, 2)
+  
+  isMonetary              Boolean   @default(false)
   originalPlannedAmount Decimal? @db.Decimal(12, 2)
 
   createdAt DateTime @default(now())
@@ -256,7 +274,7 @@ model BudgetLine {
   revisions BudgetRevision[]
   alerts    BudgetAlert[]
 
-  @@unique([budgetId, analyticalAccountId])
+  @@unique([budgetId, analyticalAccountId, type]) // Added type to unique constraint to allow same analytic for income AND expense
   @@map("budget_lines")
 }
 
@@ -284,6 +302,7 @@ enum RevisionReason {
   OTHER
 }
 
+// Keeping BudgetRevision for granular line history if needed, but main workflow uses Budget copies.
 model BudgetRevision {
   id           String     @id @default(uuid())
   budgetLineId String

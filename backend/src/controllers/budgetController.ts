@@ -133,7 +133,9 @@ export const budgetController = {
           budgetLines: {
             create: lines.map((line: any) => ({
               analyticalAccountId: line.analyticalAccountId,
+              type: line.type || 'EXPENSE',
               plannedAmount: line.plannedAmount,
+              isMonetary: line.isMonetary || false,
               originalPlannedAmount: line.plannedAmount,
             })),
           },
@@ -446,8 +448,95 @@ export const budgetController = {
 
       res.status(200).json({
         status: 'success',
-        data: { simulation },
+        data: { simulation }
       });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Compute budget achievements
+   * POST /api/budgets/:id/compute
+   */
+  async compute(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      await budgetService.computeBudgetLines(id);
+
+      // Return updated metrics
+      const linesWithMetrics = await budgetService.getBudgetWithMetrics(id);
+      res.status(200).json({
+        status: 'success',
+        message: 'Budget computed successfully',
+        data: { linesWithMetrics }
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Revise budget
+   * POST /api/budgets/:id/revise
+   */
+  async revise(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.id;
+
+      const originalBudget = await prisma.budget.findUnique({
+        where: { id },
+        include: { budgetLines: true }
+      });
+
+      if (!originalBudget) throw new ApiError('Budget not found', 404);
+      // if (originalBudget.revisedBudgetId) throw new ApiError('This budget is already revised', 400);
+
+      // Create new revision
+      const revisionNumber = originalBudget.revisionNumber + 1;
+      const newName = `${originalBudget.name} (Rev ${revisionNumber})`;
+
+      const newBudget = await prisma.$transaction(async (tx) => {
+        // 1. Create new budget
+        const created = await tx.budget.create({
+          data: {
+            name: newName,
+            dateFrom: originalBudget.dateFrom,
+            dateTo: originalBudget.dateTo,
+            description: originalBudget.description,
+            status: 'DRAFT',
+            createdById: userId,
+            originalBudgetId: originalBudget.id,
+            revisionNumber: revisionNumber,
+            revisionDate: new Date()
+          }
+        });
+
+        // 2. Copy lines
+        for (const line of originalBudget.budgetLines) {
+          await tx.budgetLine.create({
+            data: {
+              budgetId: created.id,
+              analyticalAccountId: line.analyticalAccountId,
+              type: line.type,
+              plannedAmount: line.plannedAmount,
+              achievedAmount: line.achievedAmount,
+              isMonetary: line.isMonetary,
+              originalPlannedAmount: line.originalPlannedAmount
+            }
+          });
+        }
+
+        return created;
+      });
+
+      res.status(201).json({
+        status: 'success',
+        message: 'Budget revised created successfully',
+        data: { budget: newBudget }
+      });
+
     } catch (error) {
       next(error);
     }

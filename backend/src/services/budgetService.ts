@@ -43,6 +43,73 @@ interface CostCenterSummary {
 export class BudgetService {
 
     /**
+     * Calculate achieved amount (actual revenue or expense) logic
+     */
+    async calculateAchievedForLine(
+        line: { analyticalAccountId: string, type: 'INCOME' | 'EXPENSE' },
+        dateFrom: Date,
+        dateTo: Date
+    ): Promise<number> {
+        if (line.type === 'INCOME') {
+            const invoiceSum = await prisma.customerInvoiceLine.aggregate({
+                where: {
+                    analyticalAccountId: line.analyticalAccountId,
+                    customerInvoice: {
+                        status: { in: ['CONFIRMED', 'PAID', 'PARTIALLY_PAID'] },
+                        invoiceDate: { gte: dateFrom, lte: dateTo }
+                    }
+                },
+                _sum: { total: true }
+            });
+            return Number(invoiceSum._sum.total || 0);
+        } else {
+            // EXPENSE
+            const vendorBillSum = await prisma.vendorBillLine.aggregate({
+                where: {
+                    analyticalAccountId: line.analyticalAccountId,
+                    vendorBill: {
+                        status: { in: ['CONFIRMED', 'PAID', 'PARTIALLY_PAID'] },
+                        billDate: { gte: dateFrom, lte: dateTo }
+                    }
+                },
+                _sum: { total: true }
+            });
+            return Number(vendorBillSum._sum.total || 0);
+        }
+    }
+
+    /**
+     * Compute and Update achieved amounts for all lines in a budget
+     * (Persists to Database)
+     */
+    async computeBudgetLines(budgetId: string): Promise<void> {
+        const budget = await prisma.budget.findUnique({
+            where: { id: budgetId },
+            include: { budgetLines: true }
+        });
+
+        if (!budget) return;
+
+        for (const line of budget.budgetLines) {
+            // Skip manual monetary lines if needed, or compute them too?
+            // Design says "Monetary" -> "Compute".
+            // If isMonetary is true, we might still compute from actuals if the analytic account matches.
+
+            const achieved = await this.calculateAchievedForLine(
+                // @ts-ignore - Prisma enum typing
+                { analyticalAccountId: line.analyticalAccountId, type: line.type },
+                budget.dateFrom,
+                budget.dateTo
+            );
+
+            await prisma.budgetLine.update({
+                where: { id: line.id },
+                data: { achievedAmount: achieved }
+            });
+        }
+    }
+
+    /**
      * Calculate practical amount (actual spent) for a budget line
      * 
      * Sums up all confirmed vendor bill lines that are linked to 
@@ -51,60 +118,16 @@ export class BudgetService {
     async calculatePracticalAmount(
         analyticalAccountId: string,
         dateFrom: Date,
-        dateTo: Date
+        dateTo: Date,
+        type: 'INCOME' | 'EXPENSE' = 'EXPENSE'
     ): Promise<number> {
-        // Sum vendor bill lines (expenses)
-        const vendorBillSum = await prisma.vendorBillLine.aggregate({
-            where: {
-                analyticalAccountId,
-                vendorBill: {
-                    status: { in: ['CONFIRMED', 'PAID', 'PARTIALLY_PAID'] },
-                    billDate: {
-                        gte: dateFrom,
-                        lte: dateTo
-                    }
-                }
-            },
-            _sum: { total: true }
-        });
-
-        const spent = Number(vendorBillSum._sum.total || 0);
-        return Math.round(spent * 100) / 100;
-    }
-
-    /**
-     * Calculate revenue for a cost center (from customer invoices)
-     */
-    async calculateRevenue(
-        analyticalAccountId: string,
-        dateFrom: Date,
-        dateTo: Date
-    ): Promise<number> {
-        const invoiceSum = await prisma.customerInvoiceLine.aggregate({
-            where: {
-                analyticalAccountId,
-                customerInvoice: {
-                    status: { in: ['CONFIRMED', 'PAID', 'PARTIALLY_PAID'] },
-                    invoiceDate: {
-                        gte: dateFrom,
-                        lte: dateTo
-                    }
-                }
-            },
-            _sum: { total: true }
-        });
-
-        return Math.round(Number(invoiceSum._sum.total || 0) * 100) / 100;
+        return this.calculateAchievedForLine({ analyticalAccountId, type }, dateFrom, dateTo);
     }
 
     /**
      * Calculate theoretical amount
      * 
      * Formula: Planned × (Days Elapsed / Total Days)
-     * 
-     * Example: Budget is ₹100,000 for Jan-Dec (365 days)
-     * If today is March 31 (90 days elapsed):
-     * Theoretical = 100,000 × (90/365) = ₹24,657
      */
     calculateTheoreticalAmount(
         plannedAmount: number,
@@ -151,6 +174,9 @@ export class BudgetService {
 
     /**
      * Get complete metrics for a budget line
+     * Uses the persisted `achievedAmount` instead of calculating on fly for speed/stability if preferred,
+     * OR calculates on fly. Design implies "Compute" button updates the view.
+     * We will return the LIVE calculated metric here for "Practical" but also return the DB value.
      */
     async getBudgetLineMetrics(
         budgetLineId: string
@@ -166,11 +192,11 @@ export class BudgetService {
         if (!budgetLine) return null;
 
         const planned = Number(budgetLine.plannedAmount);
-        const practical = await this.calculatePracticalAmount(
-            budgetLine.analyticalAccountId,
-            budgetLine.budget.dateFrom,
-            budgetLine.budget.dateTo
-        );
+
+        // We use the persisted achievedAmount as the primary "Practical" value 
+        // because the user must explicitly "Compute" to update it in the UI flow.
+        const practical = Number(budgetLine.achievedAmount);
+
         const theoretical = this.calculateTheoreticalAmount(
             planned,
             budgetLine.budget.dateFrom,
@@ -256,7 +282,9 @@ export class BudgetService {
                 const practical = await this.calculatePracticalAmount(
                     line.analyticalAccountId,
                     budget.dateFrom,
-                    budget.dateTo
+                    budget.dateTo,
+                    // @ts-ignore
+                    line.type || 'EXPENSE'
                 );
 
                 totalPlanned += planned;
@@ -351,7 +379,9 @@ export class BudgetService {
             const practical = await this.calculatePracticalAmount(
                 line.analyticalAccountId,
                 budget.dateFrom,
-                budget.dateTo
+                budget.dateTo,
+                // @ts-ignore
+                line.type || 'EXPENSE'
             );
 
             const achievementPercent = plannedAmount > 0 ? Math.round((practical / plannedAmount) * 100) : 0;
