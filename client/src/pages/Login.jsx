@@ -29,14 +29,30 @@ export default function Login() {
 
     try {
       const user = await login(email, password);
+      
+      console.log('Login successful:', user); // Debug log
+
+      // Role and redirection handling
       if (user.role === 'ADMIN' || user.role === 'admin') {
         navigate('/admin');
+      } else if (user.role === 'PORTAL_USER' || user.role === 'portal_user') {
+        // Redirect based on contact type
+        if (user.contactType === 'CUSTOMER') {
+          navigate('/portal/customer');
+        } else if (user.contactType === 'VENDOR') {
+          navigate('/portal/vendor');
+        } else {
+          // Fallback if contact type is unknown or mixed, default to customer for now or show error
+          console.warn('Unknown contact type for portal user:', user.contactType);
+          navigate('/portal/customer'); 
+        }
       } else if (user.role === 'customer' || user.role === 'CUSTOMER') {
         navigate('/portal/customer');
       } else if (user.role === 'vendor' || user.role === 'VENDOR') {
         navigate('/portal/vendor');
       } else {
-        navigate('/admin');
+        console.warn('Unknown user role:', user.role);
+        navigate('/admin'); // Fallback
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid Login ID or Password');

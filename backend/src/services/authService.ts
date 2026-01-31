@@ -33,6 +33,7 @@ interface AuthResponse {
     name: string;
     role: string;
     contactId?: string | null;
+    contactType?: string | null;
   };
   token: string;
 }
@@ -146,6 +147,16 @@ export class AuthService {
       throw new ApiError("Invalid email or password", 401);
     }
 
+    // Fetch contact details if user has a contactId
+    let contactType = null;
+    if (user.contactId) {
+      const contact = await prisma.contact.findUnique({
+        where: { id: user.contactId },
+        select: { type: true },
+      });
+      contactType = contact?.type;
+    }
+
     // Generate token
     const token = this.generateToken({
       id: user.id,
@@ -162,6 +173,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         contactId: user.contactId,
+        contactType, // Add contactType to response
       },
       token,
     };

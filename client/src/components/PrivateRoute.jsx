@@ -14,7 +14,15 @@ export default function PrivateRoute({ children, roles }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (roles && !roles.map(r => r.toLowerCase()).includes(user.role?.toLowerCase())) {
+  // Check for role match or if it's a PORTAL_USER with a matching contactType
+  const userRole = user.role?.toLowerCase();
+  const allowedRoles = roles ? roles.map(r => r.toLowerCase()) : [];
+  
+  const hasPermission = 
+    allowedRoles.includes(userRole) || 
+    (userRole === 'portal_user' && user.contactType && allowedRoles.includes(user.contactType.toLowerCase()));
+
+  if (roles && !hasPermission) {
     return <Navigate to="/" replace />; // Or unauthorized page
   }
 
