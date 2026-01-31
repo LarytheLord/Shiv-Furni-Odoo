@@ -27,6 +27,7 @@ import Invoices from './pages/admin/Invoices';
 import Payments from './pages/admin/Payments';
 
 import Analytics from './pages/admin/Analytics';
+import Users from './pages/admin/Users';
 
 // Placeholder Pages
 const Placeholder = ({ title }) => (
@@ -61,6 +62,7 @@ function App() {
           <Route path='invoices' element={<Invoices />} />
           <Route path='payments' element={<Payments />} />
           <Route path='analytics' element={<Analytics />} />
+          <Route path='users' element={<Users />} />
         </Route>
 
         {/* Portal Routes */}

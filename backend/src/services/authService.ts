@@ -7,6 +7,7 @@ import { UserRole } from "@prisma/client";
 
 interface RegisterData {
   email: string;
+  loginId?: string;
   password: string;
   name: string;
   role?: UserRole;
@@ -14,7 +15,8 @@ interface RegisterData {
 }
 
 interface LoginData {
-  email: string;
+  email?: string;
+  loginId?: string;
   password: string;
 }
 
@@ -69,13 +71,21 @@ export class AuthService {
    * Register a new user
    */
   async register(data: RegisterData): Promise<AuthResponse> {
-    // Check if email already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
+    // Check if email or loginId already exists
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: data.email },
+          ...(data.loginId ? [{ loginId: data.loginId }] : [])
+        ]
+      },
     });
 
     if (existingUser) {
-      throw new ApiError("Email already registered", 400);
+      if (existingUser.email === data.email) {
+        throw new ApiError("Email already registered", 400);
+      }
+      throw new ApiError("Login ID already taken", 400);
     }
 
     // Hash password
@@ -85,6 +95,7 @@ export class AuthService {
     const user = await prisma.user.create({
       data: {
         email: data.email,
+        loginId: data.loginId,
         password: hashedPassword,
         name: data.name,
         role: data.role || "PORTAL_USER",
@@ -115,9 +126,19 @@ export class AuthService {
    * Login user
    */
   async login(data: LoginData): Promise<AuthResponse> {
-    // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email: data.email },
+    // Find user by email or loginId
+    const identifier = data.email || data.loginId;
+    if (!identifier) {
+      throw new ApiError("Login ID or Email is required", 400);
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: identifier },
+          { loginId: identifier }
+        ]
+      },
       select: {
         id: true,
         email: true,

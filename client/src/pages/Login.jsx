@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Mail, Lock, User, AlertCircle, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -16,7 +16,7 @@ export default function Login() {
     e.preventDefault();
     setError('');
 
-    if (!email.trim()) {
+    if (!identifier.trim()) {
       setError('Please enter your email or login ID');
       return;
     }
@@ -28,7 +28,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const user = await login(email, password);
+      const user = await login(identifier, password);
       
       console.log('Login successful:', user); // Debug log
 
@@ -113,16 +113,16 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
-              <label htmlFor="email">Login ID / Email</label>
+              <label htmlFor="identifier">Login ID / Email</label>
               <div className="input-wrapper">
                 <User className="input-icon" size={18} />
                 <input
-                  id="email"
+                  id="identifier"
                   type="text"
                   autoComplete="username"
                   placeholder="Enter your login ID or email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   disabled={isLoading}
                 />
               </div>

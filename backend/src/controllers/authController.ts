@@ -13,10 +13,11 @@ export const authController = {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const { email, password, name, role, contactId } = req.body;
+      const { email, loginId, password, name, role, contactId } = req.body;
 
       const result = await authService.register({
         email,
+        loginId,
         password,
         name,
         role,
@@ -39,14 +40,14 @@ export const authController = {
    */
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email, password } = req.body;
+      const { email, loginId, password } = req.body;
 
-      const result = await authService.login({ email, password });
+      const result = await authService.login({ email, loginId, password });
 
       // Set custom Authentication header
       res.setHeader("Authorization", `Bearer ${result.token}`);
       console.log(result.token)
-      
+
 
       res.status(200).json({
         status: "success",

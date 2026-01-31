@@ -1,5 +1,6 @@
 import { env } from "./config/env";
 import dotenv from "dotenv";
+import express from "express";
 import app from "./app";
 
 dotenv.config();
