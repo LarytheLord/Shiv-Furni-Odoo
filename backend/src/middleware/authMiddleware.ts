@@ -109,3 +109,6 @@ export const authMiddleware = async (
 };
 
 export default authMiddleware;
+
+// Alias for backwards compatibility
+export const authenticate = authMiddleware;

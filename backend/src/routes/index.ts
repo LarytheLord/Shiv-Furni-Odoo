@@ -16,6 +16,7 @@ import salesOrderRoutes from './salesOrderRoutes';
 import customerInvoiceRoutes from './customerInvoiceRoutes';
 import invoicePaymentRoutes from './invoicePaymentRoutes';
 import dashboardRoutes from './dashboardRoutes';
+import analyticsRoutes from './analyticsRoutes';
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use('/sales-orders', salesOrderRoutes);
 router.use('/customer-invoices', customerInvoiceRoutes);
 router.use('/invoice-payments', invoicePaymentRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/analytics', analyticsRoutes);
 
 export default router;
