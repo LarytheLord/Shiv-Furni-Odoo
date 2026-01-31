@@ -426,28 +426,28 @@ export default function Contacts() {
         .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
         .form-group label { font-size: 0.875rem; font-weight: 500; color: #374151; }
         .form-group input { padding: 0.625rem 0.875rem; font-size: 0.875rem; border: 1px solid #d1d5db; border-radius: 6px; outline: none; transition: all 0.2s; }
-        .form-group input:focus { border-color: #f97316; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1); }
+        .form-group input:focus { border-color: var(--accent-500); box-shadow: 0 0 0 3px rgba(0, 135, 139, 0.1); }
         .form-group input::placeholder { color: #9ca3af; }
         .address-fields { display: flex; flex-direction: column; gap: 0.5rem; }
         .image-upload-box { width: 100%; height: 150px; border: 2px dashed #d1d5db; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; overflow: hidden; }
-        .image-upload-box:hover { border-color: #f97316; background: rgba(249, 115, 22, 0.05); }
+        .image-upload-box:hover { border-color: var(--accent-500); background: rgba(0, 135, 139, 0.05); }
         .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; color: #9ca3af; }
         .upload-placeholder span { font-size: 0.875rem; }
         .image-preview { width: 100%; height: 100%; object-fit: cover; }
         .tags-container { display: flex; flex-direction: column; gap: 0.75rem; }
         .tags-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
         .tag-btn { padding: 0.375rem 0.75rem; font-size: 0.8rem; font-weight: 500; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .tag-btn:hover { border-color: #f97316; color: #f97316; }
-        .tag-btn.selected { background: rgba(249, 115, 22, 0.15); border-color: #f97316; color: #f97316; }
+        .tag-btn:hover { border-color: var(--accent-500); color: var(--accent-600); }
+        .tag-btn.selected { background: rgba(0, 135, 139, 0.15); border-color: var(--accent-500); color: var(--accent-600); }
         .add-tag-row { display: flex; gap: 0.5rem; }
         .add-tag-row input { flex: 1; padding: 0.5rem 0.75rem; font-size: 0.8rem; border: 1px solid #d1d5db; border-radius: 6px; outline: none; }
-        .add-tag-row input:focus { border-color: #f97316; }
-        .btn-add-tag { padding: 0.5rem; background: #f97316; border: none; border-radius: 6px; color: white; cursor: pointer; }
-        .btn-add-tag:hover { background: #ea580c; }
-        .tags-hint { font-size: 0.75rem; color: #f97316; margin: 0; font-style: italic; }
+        .add-tag-row input:focus { border-color: var(--accent-500); }
+        .btn-add-tag { padding: 0.5rem; background: var(--accent-600); border: none; border-radius: 6px; color: white; cursor: pointer; }
+        .btn-add-tag:hover { background: var(--accent-700); }
+        .tags-hint { font-size: 0.75rem; color: var(--accent-600); margin: 0; font-style: italic; }
         .modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; }
-        .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: white; background: #f97316; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .btn-primary:hover { background: #ea580c; }
+        .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: white; background: var(--accent-600); border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .btn-primary:hover { background: var(--accent-700); }
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-secondary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: #374151; background: white; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
         .btn-secondary:hover { background: #f9fafb; }

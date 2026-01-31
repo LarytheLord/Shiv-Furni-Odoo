@@ -359,7 +359,7 @@ export default function Products() {
         .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
         .form-group label { font-size: 0.875rem; font-weight: 500; color: #374151; }
         .form-group input { padding: 0.625rem 0.875rem; font-size: 0.875rem; border: 1px solid #d1d5db; border-radius: 6px; outline: none; transition: all 0.2s; }
-        .form-group input:focus { border-color: #f97316; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1); }
+        .form-group input:focus { border-color: var(--accent-500); box-shadow: 0 0 0 3px rgba(0, 135, 139, 0.1); }
         .form-group input::placeholder { color: #9ca3af; }
         .price-fields { display: flex; flex-direction: column; gap: 1rem; }
         .price-input { position: relative; display: flex; align-items: center; }
@@ -377,13 +377,13 @@ export default function Products() {
         .category-empty { padding: 0.625rem 0.875rem; color: #9ca3af; font-size: 0.875rem; }
         .category-create { display: flex; gap: 0.5rem; padding: 0.625rem; border-top: 1px solid #e2e8f0; }
         .category-create input { flex: 1; padding: 0.5rem 0.75rem; font-size: 0.8rem; border: 1px solid #d1d5db; border-radius: 6px; outline: none; }
-        .category-create input:focus { border-color: #f97316; }
-        .category-create button { padding: 0.5rem; background: #f97316; border: none; border-radius: 6px; color: white; cursor: pointer; }
-        .category-create button:hover { background: #ea580c; }
-        .category-hint { font-size: 0.7rem; color: #f97316; margin: 0; padding: 0.5rem 0.625rem; font-style: italic; background: #fffbeb; }
+        .category-create input:focus { border-color: var(--accent-500); }
+        .category-create button { padding: 0.5rem; background: var(--accent-600); border: none; border-radius: 6px; color: white; cursor: pointer; }
+        .category-create button:hover { background: var(--accent-700); }
+        .category-hint { font-size: 0.7rem; color: var(--accent-600); margin: 0; padding: 0.5rem 0.625rem; font-style: italic; background: rgba(0, 135, 139, 0.05); }
         .modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; }
-        .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: white; background: #f97316; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .btn-primary:hover { background: #ea580c; }
+        .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: white; background: var(--accent-600); border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .btn-primary:hover { background: var(--accent-700); }
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-secondary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: #374151; background: white; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
         .btn-secondary:hover { background: #f9fafb; }
