@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: shiv_furniture_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shiv_admin
+      POSTGRES_PASSWORD: shiv_secure_pwd_2024
+      POSTGRES_DB: shiv_furniture_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shiv_admin -d shiv_furniture_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin - Database Management UI (Optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: shiv_furniture_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@shivfurniture.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  default:
+    name: shiv_furniture_network

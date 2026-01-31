@@ -5,15 +5,15 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Build output
-dist/
-build/
-*.tsbuildinfo
-
 # Environment variables
 .env
 .env.local
 .env.*.local
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
 
 # IDE
 .vscode/
@@ -22,6 +22,9 @@ build/
 *.swo
 *~
 .DS_Store
+
+# OS
+Thumbs.db
 
 # Logs
 logs/
