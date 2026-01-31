@@ -6,7 +6,7 @@ export default function AnalyticalAccounts() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', code: '', description: '', active: true });
+  const [formData, setFormData] = useState({ name: '', code: '', description: '', isActive: true });
 
   useEffect(() => {
     fetchAccounts();
@@ -15,7 +15,7 @@ export default function AnalyticalAccounts() {
   const fetchAccounts = async () => {
     try {
       const { data } = await api.get('/analytical-accounts');
-      setAccounts(data);
+      setAccounts(data.accounts || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -28,7 +28,7 @@ export default function AnalyticalAccounts() {
     try {
       await api.post('/analytical-accounts', formData);
       setShowModal(false);
-      setFormData({ name: '', code: '', description: '', active: true });
+      setFormData({ name: '', code: '', description: '', isActive: true });
       fetchAccounts();
     } catch (err) {
       alert('Failed to create account');
@@ -65,10 +65,10 @@ export default function AnalyticalAccounts() {
               <tr key={account.id}>
                 <td className="px-6 py-4 whitespace-nowrap">{account.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{account.code}</td>
-                <td className="px-6 py-4 whitespace-nowrap truncate max-w-xs">{account.description}</td>
+                <td className="px-6 py-4 whitespace-nowrap truncate max-w-xs">{account.description || '-'}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {account.active ? (
-                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                  {account.isActive ? (
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                       Active
                     </span>
                   ) : (
@@ -120,8 +120,8 @@ export default function AnalyticalAccounts() {
                 <input
                   type="checkbox"
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                  checked={formData.active}
-                  onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                 />
                 <label className="ml-2 block text-sm text-gray-900">Active</label>
               </div>

@@ -6,7 +6,7 @@ export default function Contacts() {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', type: 'customer', email: '', phone: '', portal_access: false });
+  const [formData, setFormData] = useState({ name: '', type: 'CUSTOMER', email: '', phone: '' });
 
   useEffect(() => {
     fetchContacts();
@@ -15,7 +15,7 @@ export default function Contacts() {
   const fetchContacts = async () => {
     try {
       const { data } = await api.get('/contacts');
-      setContacts(data);
+      setContacts(data.contacts || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -28,7 +28,7 @@ export default function Contacts() {
     try {
       await api.post('/contacts', formData);
       setShowModal(false);
-      setFormData({ name: '', type: 'customer', email: '', phone: '', portal_access: false });
+      setFormData({ name: '', type: 'CUSTOMER', email: '', phone: '' });
       fetchContacts();
     } catch (err) {
       alert('Failed to create contact');
@@ -58,24 +58,24 @@ export default function Contacts() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Portal</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {contacts.map((contact) => (
               <tr key={contact.id}>
                 <td className="px-6 py-4 whitespace-nowrap">{contact.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap capitalize">{contact.type}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{contact.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{contact.phone}</td>
+                <td className="px-6 py-4 whitespace-nowrap capitalize">{contact.type?.toLowerCase()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{contact.email || '-'}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{contact.phone || '-'}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {contact.portal_access ? (
+                  {contact.isActive ? (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                       Active
                     </span>
                   ) : (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                      No
+                      Inactive
                     </span>
                   )}
                 </td>
@@ -107,9 +107,9 @@ export default function Contacts() {
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                 >
-                  <option value="customer">Customer</option>
-                  <option value="vendor">Vendor</option>
-                  <option value="both">Both</option>
+                  <option value="CUSTOMER">Customer</option>
+                  <option value="VENDOR">Vendor</option>
+                  <option value="BOTH">Both</option>
                 </select>
               </div>
               <div>
@@ -121,7 +121,7 @@ export default function Contacts() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
-               <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Phone</label>
                 <input
                   type="text"
@@ -129,15 +129,6 @@ export default function Contacts() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
-              </div>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                  checked={formData.portal_access}
-                  onChange={(e) => setFormData({ ...formData, portal_access: e.target.checked })}
-                />
-                <label className="ml-2 block text-sm text-gray-900">Enable Portal Access</label>
               </div>
               <div className="flex justify-end space-x-3 mt-4">
                 <button

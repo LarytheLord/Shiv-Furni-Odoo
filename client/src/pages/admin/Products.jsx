@@ -6,7 +6,7 @@ export default function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', category: '', cost_price: 0, selling_price: 0, tax_percentage: 0 });
+  const [formData, setFormData] = useState({ name: '', categoryId: '', costPrice: 0, salePrice: 0, taxRate: 0 });
 
   useEffect(() => {
     fetchProducts();
@@ -15,7 +15,7 @@ export default function Products() {
   const fetchProducts = async () => {
     try {
       const { data } = await api.get('/products');
-      setProducts(data);
+      setProducts(data.products || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -28,7 +28,7 @@ export default function Products() {
     try {
       await api.post('/products', formData);
       setShowModal(false);
-      setFormData({ name: '', category: '', cost_price: 0, selling_price: 0, tax_percentage: 0 });
+      setFormData({ name: '', categoryId: '', costPrice: 0, salePrice: 0, taxRate: 0 });
       fetchProducts();
     } catch (err) {
       alert('Failed to create product');
@@ -65,10 +65,10 @@ export default function Products() {
             {products.map((product) => (
               <tr key={product.id}>
                 <td className="px-6 py-4 whitespace-nowrap">{product.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{product.category}</td>
-                <td className="px-6 py-4 whitespace-nowrap">${product.cost_price}</td>
-                <td className="px-6 py-4 whitespace-nowrap">${product.selling_price}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{product.tax_percentage}%</td>
+                <td className="px-6 py-4 whitespace-nowrap">{product.category?.name || '-'}</td>
+                <td className="px-6 py-4 whitespace-nowrap">₹{Number(product.costPrice).toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">₹{Number(product.salePrice).toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{product.taxRate}%</td>
               </tr>
             ))}
           </tbody>
@@ -94,38 +94,39 @@ export default function Products() {
                 <label className="block text-sm font-medium text-gray-700">Category</label>
                 <input
                   type="text"
+                  placeholder="Category ID (optional)"
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  value={formData.categoryId}
+                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Cost Price</label>
-                    <input
-                      type="number"
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      value={formData.cost_price}
-                      onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Selling Price</label>
-                    <input
-                      type="number"
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      value={formData.selling_price}
-                      onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Cost Price</label>
+                  <input
+                    type="number"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    value={formData.costPrice}
+                    onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Selling Price</label>
+                  <input
+                    type="number"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    value={formData.salePrice}
+                    onChange={(e) => setFormData({ ...formData, salePrice: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Tax Percentage</label>
+                <label className="block text-sm font-medium text-gray-700">Tax Rate (%)</label>
                 <input
                   type="number"
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  value={formData.tax_percentage}
-                  onChange={(e) => setFormData({ ...formData, tax_percentage: e.target.value })}
+                  value={formData.taxRate}
+                  onChange={(e) => setFormData({ ...formData, taxRate: parseFloat(e.target.value) || 0 })}
                 />
               </div>
               <div className="flex justify-end space-x-3 mt-4">
