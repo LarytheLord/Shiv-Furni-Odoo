@@ -10,35 +10,70 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', contactController.getAll);
+router.get('/tags', contactController.getTags);
 router.get('/vendors', contactController.getVendors);
 router.get('/customers', contactController.getCustomers);
-router.get('/:id', param('id').isUUID(), validateRequest, contactController.getById);
-router.get('/:id/stats', param('id').isUUID(), validateRequest, contactController.getStats);
-
-router.post('/',
-    adminOnly,
-    [
-        body('name').notEmpty().trim(),
-        body('email').optional().isEmail().normalizeEmail(),
-        body('type').isIn(['CUSTOMER', 'VENDOR', 'BOTH'])
-    ],
-    validateRequest,
-    contactController.create
+router.get(
+  '/:id',
+  param('id').isUUID(),
+  validateRequest,
+  contactController.getById,
+);
+router.get(
+  '/:id/stats',
+  param('id').isUUID(),
+  validateRequest,
+  contactController.getStats,
 );
 
-router.patch('/:id',
-    adminOnly,
-    param('id').isUUID(),
-    [
-        body('name').optional().notEmpty().trim(),
-        body('email').optional().isEmail().normalizeEmail(),
-        body('type').optional().isIn(['CUSTOMER', 'VENDOR', 'BOTH']),
-        body('isActive').optional().isBoolean()
-    ],
-    validateRequest,
-    contactController.update
+router.post(
+  '/',
+  adminOnly,
+  [
+    body('name').notEmpty().trim(),
+    body('email').optional({ nullable: true }).isEmail().normalizeEmail(),
+    body('phone').optional(),
+    body('street').optional(),
+    body('city').optional(),
+    body('state').optional(),
+    body('country').optional(),
+    body('pincode').optional(),
+    body('image').optional(),
+    body('tags').optional().isArray(),
+    body('type').optional().isIn(['CUSTOMER', 'VENDOR', 'BOTH']),
+  ],
+  validateRequest,
+  contactController.create,
 );
 
-router.delete('/:id', adminOnly, param('id').isUUID(), validateRequest, contactController.delete);
+router.patch(
+  '/:id',
+  adminOnly,
+  param('id').isUUID(),
+  [
+    body('name').optional().notEmpty().trim(),
+    body('email').optional({ nullable: true }).isEmail().normalizeEmail(),
+    body('phone').optional(),
+    body('street').optional(),
+    body('city').optional(),
+    body('state').optional(),
+    body('country').optional(),
+    body('pincode').optional(),
+    body('image').optional(),
+    body('tags').optional().isArray(),
+    body('type').optional().isIn(['CUSTOMER', 'VENDOR', 'BOTH']),
+    body('isActive').optional().isBoolean(),
+  ],
+  validateRequest,
+  contactController.update,
+);
+
+router.delete(
+  '/:id',
+  adminOnly,
+  param('id').isUUID(),
+  validateRequest,
+  contactController.delete,
+);
 
 export default router;

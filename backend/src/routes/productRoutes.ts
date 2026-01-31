@@ -11,45 +11,67 @@ router.use(authenticate);
 
 router.get('/', productController.getAll);
 router.get('/categories', productController.getCategories);
-router.get('/:id', param('id').isUUID(), validateRequest, productController.getById);
-
-router.post('/',
-    adminOnly,
-    [
-        body('name').notEmpty().trim(),
-        body('categoryId').isUUID(),
-        body('costPrice').optional().isNumeric(),
-        body('salePrice').optional().isNumeric(),
-        body('taxRate').optional().isNumeric()
-    ],
-    validateRequest,
-    productController.create
+router.get(
+  '/:id',
+  param('id').isUUID(),
+  validateRequest,
+  productController.getById,
 );
 
-router.patch('/:id',
-    adminOnly,
-    param('id').isUUID(),
-    validateRequest,
-    productController.update
+router.post(
+  '/',
+  adminOnly,
+  [
+    body('name').notEmpty().trim(),
+    body('categoryId').optional().isUUID(),
+    body('categoryName').optional().trim(),
+    body('costPrice').optional().isNumeric(),
+    body('salePrice').optional().isNumeric(),
+    body('taxRate').optional().isNumeric(),
+  ],
+  validateRequest,
+  productController.create,
 );
 
-router.delete('/:id', adminOnly, param('id').isUUID(), validateRequest, productController.delete);
+router.patch(
+  '/:id',
+  adminOnly,
+  param('id').isUUID(),
+  validateRequest,
+  productController.update,
+);
+
+router.delete(
+  '/:id',
+  adminOnly,
+  param('id').isUUID(),
+  validateRequest,
+  productController.delete,
+);
 
 // Category routes
-router.post('/categories',
-    adminOnly,
-    body('name').notEmpty().trim(),
-    validateRequest,
-    productController.createCategory
+router.post(
+  '/categories',
+  adminOnly,
+  body('name').notEmpty().trim(),
+  validateRequest,
+  productController.createCategory,
 );
 
-router.patch('/categories/:id',
-    adminOnly,
-    param('id').isUUID(),
-    validateRequest,
-    productController.updateCategory
+router.patch(
+  '/categories/:id',
+  adminOnly,
+  param('id').isUUID(),
+  validateRequest,
+  productController.updateCategory,
 );
 
-router.delete('/categories/:id', adminOnly, param('id').isUUID(), validateRequest, productController.deleteCategory);
+router.delete(
+  '/categories/:id',
+  adminOnly,
+  param('id').isUUID(),
+  validateRequest,
+  productController.deleteCategory,
+);
 
 export default router;

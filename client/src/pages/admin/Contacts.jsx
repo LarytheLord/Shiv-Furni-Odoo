@@ -1,6 +1,33 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api from '../../api/axios';
-import { Plus, Search, Filter, MoreHorizontal, Mail, Phone, User, X, Loader2 } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreHorizontal,
+  Mail,
+  Phone,
+  User,
+  X,
+  Loader2,
+  MapPin,
+  Upload,
+} from 'lucide-react';
+
+const initialFormData = {
+  name: '',
+  email: '',
+  phone: '',
+  street: '',
+  city: '',
+  state: '',
+  country: '',
+  pincode: '',
+  image: '',
+  tags: [],
+};
+
+const defaultTags = ['B2B', 'MSME', 'Retailer', 'Local'];
 
 export default function Contacts() {
   const [contacts, setContacts] = useState([]);
@@ -8,10 +35,17 @@ export default function Contacts() {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [formData, setFormData] = useState({ name: '', type: 'CUSTOMER', email: '', phone: '' });
+  const [formData, setFormData] = useState(initialFormData);
+  const [availableTags, setAvailableTags] = useState(defaultTags);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [imagePreview, setImagePreview] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showArchived, setShowArchived] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchContacts();
+    fetchTags();
   }, []);
 
   const fetchContacts = async () => {
@@ -25,13 +59,27 @@ export default function Contacts() {
     }
   };
 
+  const fetchTags = async () => {
+    try {
+      const { data } = await api.get('/contacts/tags');
+      if (data.tags && data.tags.length > 0) {
+        setAvailableTags([
+          ...new Set([...defaultTags, ...data.tags.map((t) => t.name)]),
+        ]);
+      }
+    } catch (err) {
+      // Tags endpoint might not exist yet, use defaults
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       await api.post('/contacts', formData);
       setShowModal(false);
-      setFormData({ name: '', type: 'CUSTOMER', email: '', phone: '' });
+      setFormData(initialFormData);
+      setImagePreview(null);
       fetchContacts();
     } catch (err) {
       alert('Failed to create contact');
@@ -40,122 +88,227 @@ export default function Contacts() {
     }
   };
 
-  const filteredContacts = contacts.filter(contact =>
-    contact.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+        setFormData({ ...formData, image: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const toggleTag = (tag) => {
+    const currentTags = formData.tags || [];
+    if (currentTags.includes(tag)) {
+      setFormData({ ...formData, tags: currentTags.filter((t) => t !== tag) });
+    } else {
+      setFormData({ ...formData, tags: [...currentTags, tag] });
+    }
+  };
+
+  const addNewTag = () => {
+    const trimmedTag = newTagInput.trim();
+    if (trimmedTag && !availableTags.includes(trimmedTag)) {
+      setAvailableTags([...availableTags, trimmedTag]);
+      setFormData({
+        ...formData,
+        tags: [...(formData.tags || []), trimmedTag],
+      });
+      setNewTagInput('');
+    } else if (trimmedTag && !formData.tags?.includes(trimmedTag)) {
+      setFormData({
+        ...formData,
+        tags: [...(formData.tags || []), trimmedTag],
+      });
+      setNewTagInput('');
+    }
+  };
+
+  const filteredContacts = contacts.filter(
+    (contact) =>
+      (showArchived ? !contact.isActive : contact.isActive !== false) &&
+      (contact.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        contact.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        contact.city?.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
-  const getTypeColor = (type) => {
-    switch (type?.toUpperCase()) {
-      case 'CUSTOMER': return { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' };
-      case 'VENDOR': return { bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316' };
-      case 'BOTH': return { bg: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' };
-      default: return { bg: 'rgba(100, 116, 139, 0.15)', color: '#64748b' };
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredContacts.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredContacts.map((c) => c.id));
+    }
+  };
+
+  const toggleSelect = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((i) => i !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
     }
   };
 
   return (
-    <div className="page-container">
+    <div className='page-container'>
       {/* Page Header */}
-      <div className="page-header">
-        <div className="header-content">
+      <div className='page-header'>
+        <div className='header-content'>
           <h1>Contacts</h1>
           <p>Manage your customers, vendors, and business contacts</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={18} />
-          <span>Add Contact</span>
-        </button>
+        <div className='header-actions'>
+          <button
+            className={`btn-secondary ${showArchived ? 'active' : ''}`}
+            onClick={() => setShowArchived(!showArchived)}
+          >
+            <span>{showArchived ? 'Show Active' : 'Archived'}</span>
+          </button>
+          <button className='btn-primary' onClick={() => setShowModal(true)}>
+            <Plus size={18} />
+            <span>Add Contact</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="filters-bar">
-        <div className="search-box">
+      <div className='filters-bar'>
+        <div className='search-box'>
           <Search size={18} />
           <input
-            type="text"
-            placeholder="Search contacts..."
+            type='text'
+            placeholder='Search contacts...'
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <button className="btn-secondary">
+        <button className='btn-secondary'>
           <Filter size={16} />
           <span>Filters</span>
         </button>
       </div>
 
       {/* Contacts Table */}
-      <div className="card">
+      <div className='card'>
         {loading ? (
-          <div className="loading-skeleton">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="skeleton-row">
-                <div className="skeleton skeleton-circle" />
-                <div className="skeleton skeleton-line" style={{ width: '30%' }} />
-                <div className="skeleton skeleton-line" style={{ width: '15%' }} />
-                <div className="skeleton skeleton-line" style={{ width: '25%' }} />
-                <div className="skeleton skeleton-line" style={{ width: '15%' }} />
+          <div className='loading-skeleton'>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className='skeleton-row'>
+                <div className='skeleton skeleton-circle' />
+                <div
+                  className='skeleton skeleton-line'
+                  style={{ width: '30%' }}
+                />
+                <div
+                  className='skeleton skeleton-line'
+                  style={{ width: '15%' }}
+                />
+                <div
+                  className='skeleton skeleton-line'
+                  style={{ width: '25%' }}
+                />
+                <div
+                  className='skeleton skeleton-line'
+                  style={{ width: '15%' }}
+                />
               </div>
             ))}
           </div>
         ) : filteredContacts.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon"><User size={32} /></div>
+          <div className='empty-state'>
+            <div className='empty-icon'>
+              <User size={32} />
+            </div>
             <h3>No contacts found</h3>
             <p>Get started by adding your first contact</p>
-            <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <button className='btn-primary' onClick={() => setShowModal(true)}>
               <Plus size={18} />
               <span>Add Contact</span>
             </button>
           </div>
         ) : (
-          <table className="table">
+          <table className='table'>
             <thead>
               <tr>
+                <th className='th-checkbox'>
+                  <input
+                    type='checkbox'
+                    checked={
+                      selectedIds.length === filteredContacts.length &&
+                      filteredContacts.length > 0
+                    }
+                    onChange={toggleSelectAll}
+                    className='row-checkbox'
+                  />
+                </th>
                 <th>Contact</th>
-                <th>Type</th>
                 <th>Email</th>
                 <th>Phone</th>
-                <th>Status</th>
+                <th>Location</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {filteredContacts.map((contact) => {
-                const typeStyle = getTypeColor(contact.type);
                 return (
-                  <tr key={contact.id}>
+                  <tr
+                    key={contact.id}
+                    className={
+                      selectedIds.includes(contact.id) ? 'selected' : ''
+                    }
+                  >
+                    <td className='td-checkbox'>
+                      <input
+                        type='checkbox'
+                        checked={selectedIds.includes(contact.id)}
+                        onChange={() => toggleSelect(contact.id)}
+                        className='row-checkbox'
+                      />
+                    </td>
                     <td>
-                      <div className="cell-with-avatar">
-                        <div className="avatar">{contact.name?.[0]?.toUpperCase() || 'C'}</div>
-                        <span className="primary-text">{contact.name}</span>
+                      <div className='cell-with-avatar'>
+                        {contact.image ? (
+                          <img
+                            src={contact.image}
+                            alt={contact.name}
+                            className='avatar-img'
+                          />
+                        ) : (
+                          <div className='avatar'>
+                            {contact.name?.[0]?.toUpperCase() || 'C'}
+                          </div>
+                        )}
+                        <span className='primary-text'>{contact.name}</span>
                       </div>
                     </td>
                     <td>
-                      <span className="badge" style={{ background: typeStyle.bg, color: typeStyle.color }}>
-                        {contact.type?.toLowerCase()}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="cell-with-icon">
+                      <div className='cell-with-icon'>
                         <Mail size={14} />
                         <span>{contact.email || '—'}</span>
                       </div>
                     </td>
                     <td>
-                      <div className="cell-with-icon">
+                      <div className='cell-with-icon'>
                         <Phone size={14} />
                         <span>{contact.phone || '—'}</span>
                       </div>
                     </td>
                     <td>
-                      <span className={`status-badge ${contact.isActive ? 'active' : 'inactive'}`}>
-                        {contact.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      <div className='cell-with-icon'>
+                        <MapPin size={14} />
+                        <span>
+                          {[contact.city, contact.state]
+                            .filter(Boolean)
+                            .join(', ') || '—'}
+                        </span>
+                      </div>
                     </td>
                     <td>
-                      <button className="icon-btn"><MoreHorizontal size={18} /></button>
+                      <button className='icon-btn'>
+                        <MoreHorizontal size={18} />
+                      </button>
                     </td>
                   </tr>
                 );
@@ -167,54 +320,220 @@ export default function Contacts() {
 
       {/* Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className='modal-overlay' onClick={() => setShowModal(false)}>
+          <div
+            className='modal modal-large'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className='modal-header'>
               <h2>Add New Contact</h2>
-              <button className="close-btn" onClick={() => setShowModal(false)}><X size={20} /></button>
+              <button className='close-btn' onClick={() => setShowModal(false)}>
+                <X size={20} />
+              </button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Full Name</label>
-                  <div className="input-wrapper">
-                    <User size={18} className="input-icon" />
-                    <input type="text" required placeholder="Enter contact name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-                  </div>
-                </div>
+              <div className='modal-body'>
+                <div className='form-layout'>
+                  {/* Left Column - Basic Info & Address */}
+                  <div className='form-column'>
+                    <div className='form-group'>
+                      <label>Contact Name</label>
+                      <div className='input-wrapper'>
+                        <User size={18} className='input-icon' />
+                        <input
+                          type='text'
+                          required
+                          placeholder='Enter contact name'
+                          value={formData.name}
+                          onChange={(e) =>
+                            setFormData({ ...formData, name: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
 
-                <div className="form-group">
-                  <label>Contact Type</label>
-                  <div className="input-wrapper">
-                    <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
-                      <option value="CUSTOMER">Customer</option>
-                      <option value="VENDOR">Vendor</option>
-                      <option value="BOTH">Both</option>
-                    </select>
-                  </div>
-                </div>
+                    <div className='form-group'>
+                      <label>Email</label>
+                      <div className='input-wrapper'>
+                        <Mail size={18} className='input-icon' />
+                        <input
+                          type='email'
+                          placeholder='unique email'
+                          value={formData.email}
+                          onChange={(e) =>
+                            setFormData({ ...formData, email: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
 
-                <div className="form-group">
-                  <label>Email Address</label>
-                  <div className="input-wrapper">
-                    <Mail size={18} className="input-icon" />
-                    <input type="email" placeholder="email@example.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-                  </div>
-                </div>
+                    <div className='form-group'>
+                      <label>Phone</label>
+                      <div className='input-wrapper'>
+                        <Phone size={18} className='input-icon' />
+                        <input
+                          type='text'
+                          placeholder='Phone number'
+                          value={formData.phone}
+                          onChange={(e) =>
+                            setFormData({ ...formData, phone: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
 
-                <div className="form-group">
-                  <label>Phone Number</label>
-                  <div className="input-wrapper">
-                    <Phone size={18} className="input-icon" />
-                    <input type="text" placeholder="+91 12345 67890" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                    <div className='form-group'>
+                      <label>Address</label>
+                      <div className='address-fields'>
+                        <input
+                          type='text'
+                          placeholder='Street'
+                          value={formData.street}
+                          onChange={(e) =>
+                            setFormData({ ...formData, street: e.target.value })
+                          }
+                        />
+                        <input
+                          type='text'
+                          placeholder='City'
+                          value={formData.city}
+                          onChange={(e) =>
+                            setFormData({ ...formData, city: e.target.value })
+                          }
+                        />
+                        <input
+                          type='text'
+                          placeholder='State'
+                          value={formData.state}
+                          onChange={(e) =>
+                            setFormData({ ...formData, state: e.target.value })
+                          }
+                        />
+                        <input
+                          type='text'
+                          placeholder='Country'
+                          value={formData.country}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              country: e.target.value,
+                            })
+                          }
+                        />
+                        <input
+                          type='text'
+                          placeholder='Pincode'
+                          value={formData.pincode}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              pincode: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column - Image & Tags */}
+                  <div className='form-column'>
+                    <div className='form-group'>
+                      <label>Upload Image</label>
+                      <div
+                        className='image-upload-box'
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        {imagePreview ? (
+                          <img
+                            src={imagePreview}
+                            alt='Preview'
+                            className='image-preview'
+                          />
+                        ) : (
+                          <div className='upload-placeholder'>
+                            <Upload size={32} />
+                            <span>Upload image</span>
+                          </div>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type='file'
+                          accept='image/*'
+                          onChange={handleImageUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className='form-group'>
+                      <label>Tags</label>
+                      <div className='tags-container'>
+                        <div className='tags-list'>
+                          {availableTags.map((tag) => (
+                            <button
+                              key={tag}
+                              type='button'
+                              className={`tag-btn ${formData.tags?.includes(tag) ? 'selected' : ''}`}
+                              onClick={() => toggleTag(tag)}
+                            >
+                              {tag}
+                            </button>
+                          ))}
+                        </div>
+                        <div className='add-tag-row'>
+                          <input
+                            type='text'
+                            placeholder='Add new tag...'
+                            value={newTagInput}
+                            onChange={(e) => setNewTagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addNewTag();
+                              }
+                            }}
+                          />
+                          <button
+                            type='button'
+                            className='btn-add-tag'
+                            onClick={addNewTag}
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                        <p className='tags-hint'>
+                          *Tags can be created and saved on the fly
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? <><Loader2 size={18} className="spin" /><span>Saving...</span></> : <><Plus size={18} /><span>Add Contact</span></>}
+              <div className='modal-footer'>
+                <button
+                  type='button'
+                  className='btn-secondary'
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type='submit'
+                  className='btn-primary'
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={18} className='spin' />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={18} />
+                      <span>Add Contact</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -291,6 +610,18 @@ export default function Contacts() {
           border-color: #cbd5e1;
         }
 
+        .btn-secondary.active {
+          background: rgba(249, 115, 22, 0.1);
+          border-color: #f97316;
+          color: #f97316;
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
         /* Filters Bar */
         .filters-bar {
           display: flex;
@@ -365,7 +696,21 @@ export default function Contacts() {
 
         .table tbody tr { transition: background 0.15s; }
         .table tbody tr:hover { background: #fafafa; }
+        .table tbody tr.selected { background: rgba(249, 115, 22, 0.06); }
         .table tbody tr:last-child td { border-bottom: none; }
+
+        .th-checkbox, .td-checkbox {
+          width: 50px;
+          padding-left: 1.5rem !important;
+          padding-right: 0.5rem !important;
+        }
+
+        .row-checkbox {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          accent-color: #f97316;
+        }
 
         .cell-with-avatar {
           display: flex;
@@ -498,6 +843,10 @@ export default function Contacts() {
           overflow: hidden;
         }
 
+        .modal-large {
+          max-width: 720px;
+        }
+
         .modal-header {
           display: flex;
           align-items: center;
@@ -520,7 +869,176 @@ export default function Contacts() {
 
         .close-btn:hover { background: #f1f5f9; color: #475569; }
 
-        .modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+        .modal-body { padding: 1.5rem; }
+
+        .form-layout {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1.5rem;
+        }
+
+        .form-column {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+
+        .address-fields {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .address-fields input {
+          width: 100%;
+          padding: 0.75rem 1rem;
+          font-size: 0.875rem;
+          color: #0f172a;
+          background: white;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 8px;
+          transition: all 0.2s;
+        }
+
+        .address-fields input:focus {
+          outline: none;
+          border-color: #f97316;
+          box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+        }
+
+        .address-fields input::placeholder { color: #94a3b8; }
+
+        .image-upload-box {
+          width: 100%;
+          aspect-ratio: 1;
+          max-height: 180px;
+          border: 2px dashed #e2e8f0;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          overflow: hidden;
+        }
+
+        .image-upload-box:hover {
+          border-color: #f97316;
+          background: rgba(249, 115, 22, 0.04);
+        }
+
+        .upload-placeholder {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          color: #94a3b8;
+        }
+
+        .upload-placeholder span {
+          font-size: 0.875rem;
+          font-weight: 500;
+        }
+
+        .image-preview {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .tags-container {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .tags-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+
+        .tag-btn {
+          padding: 0.4rem 0.75rem;
+          font-size: 0.8rem;
+          font-weight: 500;
+          color: #64748b;
+          background: #f1f5f9;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .tag-btn:hover {
+          border-color: #f97316;
+          color: #f97316;
+        }
+
+        .tag-btn.selected {
+          background: rgba(249, 115, 22, 0.15);
+          border-color: #f97316;
+          color: #f97316;
+        }
+
+        .add-tag-row {
+          display: flex;
+          gap: 0.5rem;
+        }
+
+        .add-tag-row input {
+          flex: 1;
+          padding: 0.5rem 0.75rem;
+          font-size: 0.8rem;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 6px;
+          outline: none;
+          transition: all 0.2s;
+        }
+
+        .add-tag-row input:focus {
+          border-color: #f97316;
+          box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+        }
+
+        .btn-add-tag {
+          padding: 0.5rem;
+          background: #f97316;
+          border: none;
+          border-radius: 6px;
+          color: white;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-add-tag:hover {
+          background: #ea580c;
+        }
+
+        .tags-hint {
+          font-size: 0.75rem;
+          color: #f97316;
+          margin: 0;
+          font-style: italic;
+        }
+
+        .tags-cell {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.25rem;
+        }
+
+        .more-badge {
+          background: rgba(100, 116, 139, 0.15) !important;
+          color: #64748b !important;
+        }
+
+        .avatar-img {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          object-fit: cover;
+        }
 
         .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
         .form-group label { font-size: 0.875rem; font-weight: 500; color: #334155; }
@@ -577,6 +1095,8 @@ export default function Contacts() {
           .search-box { max-width: none; }
           .table th:nth-child(3), .table td:nth-child(3),
           .table th:nth-child(4), .table td:nth-child(4) { display: none; }
+          .form-layout { grid-template-columns: 1fr; }
+          .modal-large { max-width: 95%; }
         }
       `}</style>
     </div>
