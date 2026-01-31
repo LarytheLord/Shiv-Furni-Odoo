@@ -1,60 +1,180 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../api/axios';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { TrendingUp, PieChart } from 'lucide-react';
 
 export default function Analytics() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchAnalytics(); }, []);
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  console.log(data);
 
   const fetchAnalytics = async () => {
-    try { const res = await api.get('/analytics/budget-vs-actuals'); setData(res.data || []); }
-    catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    try {
+      const res = await api.get('/analytics/budget-vs-actuals');
+      setData(res.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const fmt = (a) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(a || 0);
+  const fmt = (a) =>
+    new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+    }).format(a || 0);
 
   return (
-    <div className="page-container">
-      <div className="page-header"><h1>Analytics</h1><p>Budget vs Actuals performance</p></div>
-
-      <div className="card chart-card">
-        <div className="card-header"><div className="icon orange"><TrendingUp size={20} /></div><h3>Budget vs Actuals</h3></div>
-        {loading ? <div className="chart-skeleton"><div className="skeleton" style={{width:'100%',height:'300px'}} /></div>
-        : <div className="chart-container">
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="analytical_account" tick={{ fill: '#64748b', fontSize: 12 }} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
-                <Tooltip contentStyle={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px' }} />
-                <Legend />
-                <Bar dataKey="budget_amount" fill="#f97316" name="Budget" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="actual_expense" fill="#ef4444" name="Expense" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="actual_income" fill="#10b981" name="Income" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>}
+    <div className='page-container'>
+      <div className='page-header'>
+        <h1>Analytics</h1>
+        <p>Budget vs Actuals performance</p>
       </div>
 
-      <div className="card">
-        <div className="card-header"><div className="icon purple"><PieChart size={20} /></div><h3>Breakdown</h3></div>
-        {loading ? <div className="ls">{[1,2,3].map(i => <div key={i} className="sr"><div className="sk sl" style={{width:'20%'}} /><div className="sk sl" style={{width:'15%'}} /><div className="sk sl" style={{width:'15%'}} /></div>)}</div>
-        : <table className="table"><thead><tr><th>Cost Center</th><th>Budget</th><th>Expense</th><th>Income</th><th>Variance</th><th>Used</th></tr></thead><tbody>
-            {data.map((i) => (
-              <tr key={i.budget_id}>
-                <td><span className="pt">{i.analytical_account}</span></td>
-                <td><span className="am">{fmt(i.budget_amount)}</span></td>
-                <td><span className="am exp">{fmt(i.actual_expense)}</span></td>
-                <td><span className="am inc">{fmt(i.actual_income)}</span></td>
-                <td><span className={`am ${i.variance_expense < 0 ? 'exp' : 'inc'}`}>{fmt(i.variance_expense)}</span></td>
-                <td><div className="progress"><div className="bar"><div className="fill" style={{width:`${Math.min(i.achievement_expense_pct||0,100)}%`}} /></div><span>{i.achievement_expense_pct?.toFixed(1)}%</span></div></td>
-              </tr>
+      <div className='card chart-card'>
+        <div className='card-header'>
+          <div className='icon orange'>
+            <TrendingUp size={20} />
+          </div>
+          <h3>Budget vs Actuals</h3>
+        </div>
+        {loading ? (
+          <div className='chart-skeleton'>
+            <div
+              className='skeleton'
+              style={{ width: '100%', height: '300px' }}
+            />
+          </div>
+        ) : (
+          <div className='chart-container'>
+            <ResponsiveContainer width='100%' height={350}>
+              <BarChart
+                data={data}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray='3 3' stroke='#e2e8f0' />
+                <XAxis
+                  dataKey='analytical_account'
+                  tick={{ fill: '#64748b', fontSize: 12 }}
+                />
+                <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                  }}
+                />
+                <Legend />
+                <Bar
+                  dataKey='budget_amount'
+                  fill='#f97316'
+                  name='Budget'
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey='actual_expense'
+                  fill='#ef4444'
+                  name='Expense'
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey='actual_income'
+                  fill='#10b981'
+                  name='Income'
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      <div className='card'>
+        <div className='card-header'>
+          <div className='icon purple'>
+            <PieChart size={20} />
+          </div>
+          <h3>Breakdown</h3>
+        </div>
+        {loading ? (
+          <div className='ls'>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className='sr'>
+                <div className='sk sl' style={{ width: '20%' }} />
+                <div className='sk sl' style={{ width: '15%' }} />
+                <div className='sk sl' style={{ width: '15%' }} />
+              </div>
             ))}
-          </tbody></table>}
+          </div>
+        ) : (
+          <table className='table'>
+            <thead>
+              <tr>
+                <th>Cost Center</th>
+                <th>Budget</th>
+                <th>Expense</th>
+                <th>Income</th>
+                <th>Variance</th>
+                <th>Used</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((i) => (
+                <tr key={i.budget_id}>
+                  <td>
+                    <span className='pt'>{i.analytical_account}</span>
+                  </td>
+                  <td>
+                    <span className='am'>{fmt(i.budget_amount)}</span>
+                  </td>
+                  <td>
+                    <span className='am exp'>{fmt(i.actual_expense)}</span>
+                  </td>
+                  <td>
+                    <span className='am inc'>{fmt(i.actual_income)}</span>
+                  </td>
+                  <td>
+                    <span
+                      className={`am ${i.variance_expense < 0 ? 'exp' : 'inc'}`}
+                    >
+                      {fmt(i.variance_expense)}
+                    </span>
+                  </td>
+                  <td>
+                    <div className='progress'>
+                      <div className='bar'>
+                        <div
+                          className='fill'
+                          style={{
+                            width: `${Math.min(i.achievement_expense_pct || 0, 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <span>{i.achievement_expense_pct?.toFixed(1)}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <style>{`

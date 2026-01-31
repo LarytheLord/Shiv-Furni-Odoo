@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../../api/axios';
 import {
@@ -12,6 +12,7 @@ import {
   Send,
   X,
   FileText,
+  AlertTriangle,
 } from 'lucide-react';
 
 const initialLine = {
@@ -51,6 +52,38 @@ export default function PurchaseOrderForm() {
   const [showVendorDropdown, setShowVendorDropdown] = useState(false);
   const [activeProductDropdown, setActiveProductDropdown] = useState(null);
   const [activeAnalyticsDropdown, setActiveAnalyticsDropdown] = useState(null);
+  const [budgetError, setBudgetError] = useState(null);
+
+  // Budget validation state
+  const [activeBudget, setActiveBudget] = useState(null);
+  const [budgetWarnings, setBudgetWarnings] = useState([]); // { lineIndex, message, accountName }
+  const [isBudgetExceeded, setIsBudgetExceeded] = useState(false);
+  const [originalExpensesByAccount, setOriginalExpensesByAccount] = useState(
+    new Map(),
+  ); // For existing POs
+
+  // Ref for container to handle click outside
+  const containerRef = useRef(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        containerRef.current &&
+        !event.target.closest('.select-wrapper') &&
+        !event.target.closest('.cell-select')
+      ) {
+        setShowVendorDropdown(false);
+        setActiveProductDropdown(null);
+        setActiveAnalyticsDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Fetch dropdown options
   const fetchDropdownData = useCallback(async () => {
@@ -76,6 +109,119 @@ export default function PurchaseOrderForm() {
     }
   }, []);
 
+  // Generate next reference number using existing PO count
+  const fetchNextReference = useCallback(async () => {
+    if (!isNew) return;
+    try {
+      const { data: response } = await api.get('/purchase-orders', {
+        params: { limit: 1 },
+      });
+      const total = response.pagination?.total || 0;
+      const nextSeq = total + 1;
+      const year = String(new Date().getFullYear()).slice(-2);
+      const refNumber = `REQ-${year}-${String(nextSeq).padStart(4, '0')}`;
+      setFormData((prev) => ({ ...prev, reference: refNumber }));
+    } catch (err) {
+      console.error('Failed to generate reference number:', err);
+      const year = String(new Date().getFullYear()).slice(-2);
+      setFormData((prev) => ({ ...prev, reference: `REQ-${year}-0001` }));
+    }
+  }, [isNew]);
+
+  // Fetch active budget for the selected date
+  const fetchActiveBudget = useCallback(async (date) => {
+    try {
+      const { data: response } = await api.get('/budgets', {
+        params: { status: 'CONFIRMED' },
+      });
+      const budgets = response.data?.budgets || response.budgets || [];
+
+      // Find budget that covers the date
+      const targetDate = new Date(date);
+      const matching = budgets.find((b) => {
+        const from = new Date(b.dateFrom);
+        const to = new Date(b.dateTo);
+        return targetDate >= from && targetDate <= to;
+      });
+
+      if (matching) {
+        // Fetch full budget with lines
+        const { data: fullBudget } = await api.get(`/budgets/${matching.id}`);
+        setActiveBudget(fullBudget.data?.budget || fullBudget.budget);
+      } else {
+        setActiveBudget(null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch budget:', err);
+      setActiveBudget(null);
+    }
+  }, []);
+
+  // Validate budget in real-time
+  const validateBudgetRealtime = useCallback(
+    (lines, budget, origExpenses, isNewOrder) => {
+      if (!budget || !budget.budgetLines) {
+        setBudgetWarnings([]);
+        setIsBudgetExceeded(false);
+        return;
+      }
+
+      const warnings = [];
+      const expensesByAccount = new Map();
+
+      // Aggregate expenses by analytical account
+      lines.forEach((line, index) => {
+        if (line.analyticalAccountId && line.productId) {
+          const lineTotal = Number(line.quantity) * Number(line.unitPrice);
+          const current = expensesByAccount.get(line.analyticalAccountId) || {
+            amount: 0,
+            indices: [],
+          };
+          current.amount += lineTotal;
+          current.indices.push(index);
+          expensesByAccount.set(line.analyticalAccountId, current);
+        }
+      });
+
+      // Check against budget lines
+      for (const [accountId, data] of expensesByAccount) {
+        const budgetLine = budget.budgetLines.find(
+          (bl) => bl.analyticalAccountId === accountId && bl.type === 'EXPENSE',
+        );
+
+        if (budgetLine) {
+          const planned = Number(budgetLine.plannedAmount);
+          let spent = Number(budgetLine.achievedAmount || 0);
+
+          // For existing POs, subtract the original expense from "spent" since it's already counted
+          // This prevents double-counting when viewing/editing an existing PO
+          if (!isNewOrder && origExpenses.has(accountId)) {
+            spent = spent - origExpenses.get(accountId);
+          }
+
+          const remaining = planned - spent;
+
+          if (data.amount > remaining) {
+            const accountName = budgetLine.analyticalAccount?.name || 'Unknown';
+            data.indices.forEach((idx) => {
+              warnings.push({
+                lineIndex: idx,
+                accountName,
+                message: `Exceeds budget: ₹${data.amount.toLocaleString()} > ₹${remaining.toLocaleString()} remaining (Budget: ₹${planned.toLocaleString()}, Spent: ₹${spent.toLocaleString()})`,
+                budgetId: budget.id,
+                budgetName: budget.name,
+              });
+            });
+          }
+        }
+      }
+
+      setBudgetWarnings(warnings);
+      setIsBudgetExceeded(warnings.length > 0);
+    },
+    [],
+  );
+
   // Fetch existing order
   const fetchOrder = useCallback(async () => {
     if (isNew) return;
@@ -85,6 +231,17 @@ export default function PurchaseOrderForm() {
       const order = response.data?.order || response.order;
 
       if (order) {
+        // Calculate original expenses by account for this existing PO
+        const origExpenses = new Map();
+        order.lines?.forEach((line) => {
+          if (line.analyticalAccountId) {
+            const lineTotal = Number(line.quantity) * Number(line.unitPrice);
+            const current = origExpenses.get(line.analyticalAccountId) || 0;
+            origExpenses.set(line.analyticalAccountId, current + lineTotal);
+          }
+        });
+        setOriginalExpensesByAccount(origExpenses);
+
         setFormData({
           poNumber: order.poNumber,
           vendorId: order.vendorId,
@@ -115,7 +272,31 @@ export default function PurchaseOrderForm() {
   useEffect(() => {
     fetchDropdownData();
     fetchOrder();
-  }, [fetchDropdownData, fetchOrder]);
+    fetchNextReference();
+  }, [fetchDropdownData, fetchOrder, fetchNextReference]);
+
+  // Fetch budget when order date changes
+  useEffect(() => {
+    if (formData.orderDate) {
+      fetchActiveBudget(formData.orderDate);
+    }
+  }, [formData.orderDate, fetchActiveBudget]);
+
+  // Validate budget in real-time when lines or budget changes
+  useEffect(() => {
+    validateBudgetRealtime(
+      formData.lines,
+      activeBudget,
+      originalExpensesByAccount,
+      isNew,
+    );
+  }, [
+    formData.lines,
+    activeBudget,
+    originalExpensesByAccount,
+    isNew,
+    validateBudgetRealtime,
+  ]);
 
   // Calculate line total
   const calculateLineTotal = (qty, price) => {
@@ -133,13 +314,18 @@ export default function PurchaseOrderForm() {
   // Handle line changes (only quantity, since unit price is read-only)
   const updateLine = (index, field, value) => {
     const newLines = [...formData.lines];
-    newLines[index] = { ...newLines[index], [field]: value };
 
+    // For quantity: enforce integer, minimum 1
     if (field === 'quantity') {
+      let qty = parseInt(value, 10);
+      if (isNaN(qty) || qty < 1) qty = 1;
+      newLines[index] = { ...newLines[index], quantity: qty };
       newLines[index].total = calculateLineTotal(
-        newLines[index].quantity,
+        qty,
         newLines[index].unitPrice,
       );
+    } else {
+      newLines[index] = { ...newLines[index], [field]: value };
     }
 
     setFormData({ ...formData, lines: newLines });
@@ -189,14 +375,49 @@ export default function PurchaseOrderForm() {
     setFormData({ ...formData, lines: newLines });
   };
 
+  // Form validation
+  const validateForm = () => {
+    const errors = [];
+
+    if (!formData.vendorId) {
+      errors.push('Please select a vendor');
+    }
+
+    if (!formData.orderDate) {
+      errors.push('Please select a PO date');
+    }
+
+    const validLines = formData.lines.filter((l) => l.productId);
+    if (validLines.length === 0) {
+      errors.push('Please add at least one product line');
+    }
+
+    // Validate each line
+    formData.lines.forEach((line, index) => {
+      if (line.productId) {
+        const qty = parseInt(line.quantity, 10);
+        if (isNaN(qty) || qty < 1) {
+          errors.push(`Line ${index + 1}: Quantity must be at least 1`);
+        }
+        if (!Number.isInteger(qty)) {
+          errors.push(`Line ${index + 1}: Quantity must be a whole number`);
+        }
+        if (!line.analyticalAccountId) {
+          errors.push(
+            `Line ${index + 1}: Please select a Budget Analytics (cost center)`,
+          );
+        }
+      }
+    });
+
+    return errors;
+  };
+
   // Save order
   const handleSave = async () => {
-    if (!formData.vendorId) {
-      alert('Please select a vendor');
-      return;
-    }
-    if (formData.lines.length === 0 || !formData.lines[0].productId) {
-      alert('Please add at least one product line');
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      alert(validationErrors.join('\n'));
       return;
     }
 
@@ -217,15 +438,26 @@ export default function PurchaseOrderForm() {
       };
 
       if (isNew) {
-        const { data: response } = await api.post('/purchase-orders', payload);
-        const newOrder = response.data?.order || response.order;
-        navigate(`/admin/purchase-orders/${newOrder.id}`);
+        await api.post('/purchase-orders', payload);
+        navigate('/admin/purchase-orders');
       } else {
         await api.patch(`/purchase-orders/${id}`, payload);
-        fetchOrder();
+        navigate('/admin/purchase-orders');
       }
     } catch (err) {
-      alert('Failed to save order');
+      const errorData = err.response?.data;
+      if (
+        errorData?.errorCode === 'NO_BUDGET_FOUND' ||
+        errorData?.errorCode === 'BUDGET_EXCEEDED' ||
+        errorData?.errorCode === 'NO_BUDGET_LINE'
+      ) {
+        setBudgetError({
+          type: errorData.errorCode,
+          message: errorData.message,
+        });
+      } else {
+        alert(errorData?.message || 'Failed to save order');
+      }
       console.error(err);
     } finally {
       setSaving(false);
@@ -264,7 +496,7 @@ export default function PurchaseOrderForm() {
   }
 
   return (
-    <div className='po-container'>
+    <div className='po-container' ref={containerRef}>
       {/* Header */}
       <div className='po-header'>
         <button
@@ -359,14 +591,12 @@ export default function PurchaseOrderForm() {
 
         <div className='info-grid'>
           <div className='form-group'>
-            <label>Reference</label>
+            <label>Reference No.</label>
             <input
               type='text'
-              placeholder='REQ-25-0001'
               value={formData.reference}
-              onChange={(e) =>
-                setFormData({ ...formData, reference: e.target.value })
-              }
+              readOnly
+              className='input-readonly'
             />
           </div>
         </div>
@@ -431,6 +661,31 @@ export default function PurchaseOrderForm() {
         </div>
       </div>
 
+      {/* Budget Warning Banner */}
+      {isBudgetExceeded && budgetWarnings.length > 0 && (
+        <div className='budget-warning-banner'>
+          <div className='warning-icon'>
+            <AlertTriangle size={20} />
+          </div>
+          <div className='warning-content'>
+            <strong>Exceeds Approved Budget</strong>
+            <p>
+              The entered amount is higher than the remaining budget amount for
+              this budget line. Consider adjusting the value or revise the
+              budget.
+            </p>
+            {activeBudget && (
+              <button
+                className='btn-view-budget'
+                onClick={() => navigate(`/admin/budgets/${activeBudget.id}`)}
+              >
+                View Budget: {activeBudget.name}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Order Lines */}
       <div className='lines-card'>
         <table className='lines-table'>
@@ -447,7 +702,14 @@ export default function PurchaseOrderForm() {
           </thead>
           <tbody>
             {formData.lines.map((line, index) => (
-              <tr key={line.id}>
+              <tr
+                key={line.id}
+                className={
+                  budgetWarnings.some((w) => w.lineIndex === index)
+                    ? 'line-over-budget'
+                    : ''
+                }
+              >
                 <td className='cell-center'>{index + 1}</td>
                 <td>
                   <div className='cell-select'>
@@ -540,11 +802,25 @@ export default function PurchaseOrderForm() {
                   <input
                     type='number'
                     min='1'
+                    step='1'
                     className='line-input cell-center'
                     value={line.quantity}
                     onChange={(e) =>
                       updateLine(index, 'quantity', e.target.value)
                     }
+                    onKeyDown={(e) => {
+                      // Prevent decimal point and minus
+                      if (e.key === '.' || e.key === '-' || e.key === 'e') {
+                        e.preventDefault();
+                      }
+                    }}
+                    onBlur={(e) => {
+                      // Ensure valid value on blur
+                      const val = parseInt(e.target.value, 10);
+                      if (isNaN(val) || val < 1) {
+                        updateLine(index, 'quantity', '1');
+                      }
+                    }}
                   />
                 </td>
                 <td>
@@ -595,13 +871,63 @@ export default function PurchaseOrderForm() {
 
       {/* Save Footer */}
       <div className='save-footer'>
-        <button className='btn-primary' onClick={handleSave} disabled={saving}>
+        {isBudgetExceeded && (
+          <span className='save-warning-text'>
+            <AlertTriangle size={16} /> Cannot save: Budget exceeded
+          </span>
+        )}
+        <button
+          className='btn-primary'
+          onClick={handleSave}
+          disabled={saving || isBudgetExceeded}
+          title={isBudgetExceeded ? 'Cannot save while budget is exceeded' : ''}
+        >
           {saving ? <Loader2 size={18} className='spin' /> : <Plus size={18} />}
           <span>
             {saving ? 'Saving...' : isNew ? 'Create Order' : 'Save Changes'}
           </span>
         </button>
       </div>
+
+      {/* Budget Error Modal */}
+      {budgetError && (
+        <div className='budget-error-overlay'>
+          <div className='budget-error-modal'>
+            <div
+              className={`budget-error-icon ${budgetError.type === 'BUDGET_EXCEEDED' ? 'exceeded' : ''}`}
+            >
+              <AlertTriangle size={24} />
+            </div>
+            <h3>
+              {budgetError.type === 'BUDGET_EXCEEDED'
+                ? 'Budget Limit Exceeded'
+                : budgetError.type === 'NO_BUDGET_LINE'
+                  ? 'Missing Budget Allocation'
+                  : 'No Budget Available'}
+            </h3>
+            <p className='budget-error-message'>{budgetError.message}</p>
+            <div className='budget-error-actions'>
+              <button
+                className='btn-secondary'
+                onClick={() => setBudgetError(null)}
+              >
+                {budgetError.type === 'BUDGET_EXCEEDED' ||
+                budgetError.type === 'NO_BUDGET_LINE'
+                  ? 'Modify Order'
+                  : 'Cancel'}
+              </button>
+              <button
+                className='btn-budget-create'
+                onClick={() => navigate('/admin/budgets')}
+              >
+                {budgetError.type === 'NO_BUDGET_FOUND'
+                  ? 'Create Budget'
+                  : 'View Budgets'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .po-container {
@@ -825,12 +1151,13 @@ export default function PurchaseOrderForm() {
           background: white;
           border: 1px solid #e2e8f0;
           border-radius: 8px;
-          overflow: hidden;
+          overflow: visible;
         }
         .lines-table {
           width: 100%;
           border-collapse: collapse;
           font-size: 0.875rem;
+          overflow: visible;
         }
         .lines-table th {
           text-align: left;
@@ -847,14 +1174,20 @@ export default function PurchaseOrderForm() {
           padding: 0.875rem 0.75rem;
           border-bottom: 1px solid #f1f5f9;
           vertical-align: top;
+          overflow: visible;
+          position: relative;
         }
         .cell-center { text-align: center; }
         .cell-right { text-align: right; }
-        .cell-select { position: relative; }
+        .cell-select { position: relative; z-index: 1; }
+        .cell-select:has(.select-dropdown) { z-index: 1000; }
         .cell-select .select-trigger {
           padding: 0.5rem 0.75rem;
           font-size: 0.875rem;
           min-width: 160px;
+        }
+        .cell-select .select-dropdown {
+          z-index: 1000;
         }
         .cell-hint {
           display: block;
@@ -969,6 +1302,183 @@ export default function PurchaseOrderForm() {
 
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* Budget Error Modal */
+        .budget-error-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.4);
+          backdrop-filter: blur(2px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        .budget-error-modal {
+          background: white;
+          border-radius: 8px;
+          border: 1px solid #e2e8f0;
+          padding: 1.5rem;
+          max-width: 400px;
+          width: 90%;
+          text-align: center;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        }
+        .budget-error-icon {
+          width: 48px;
+          height: 48px;
+          background: #fef3c7;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 1rem;
+          color: #d97706;
+        }
+        .budget-error-icon.exceeded {
+          background: #fee2e2;
+          color: #dc2626;
+        }
+        .budget-error-modal h3 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: #0f172a;
+          margin: 0 0 0.5rem;
+        }
+        .budget-error-modal p {
+          font-size: 0.875rem;
+          color: #64748b;
+          margin: 0 0 1.25rem;
+          line-height: 1.5;
+        }
+        .budget-error-message {
+          white-space: pre-line;
+          text-align: left;
+          background: #f8fafc;
+          padding: 0.75rem;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+          font-size: 0.8125rem;
+          max-height: 150px;
+          overflow-y: auto;
+        }
+        .budget-error-actions {
+          display: flex;
+          gap: 0.5rem;
+          justify-content: center;
+        }
+        .budget-error-actions .btn-secondary {
+          padding: 0.5rem 1rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #374151;
+          background: white;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .budget-error-actions .btn-secondary:hover { background: #f9fafb; }
+        .btn-budget-create {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.5rem 1rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: white;
+          background: var(--accent-600);
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .btn-budget-create:hover { background: var(--accent-700); }
+
+        /* Budget Warning Banner */
+        .budget-warning-banner {
+          display: flex;
+          gap: 1rem;
+          padding: 1rem 1.25rem;
+          background: #fffbeb;
+          border: 1px solid #fbbf24;
+          border-radius: 8px;
+          margin-bottom: 0;
+        }
+        .budget-warning-banner .warning-icon {
+          flex-shrink: 0;
+          width: 40px;
+          height: 40px;
+          background: #fef3c7;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #d97706;
+        }
+        .budget-warning-banner .warning-content {
+          flex: 1;
+        }
+        .budget-warning-banner .warning-content strong {
+          font-size: 0.9375rem;
+          font-weight: 600;
+          color: #92400e;
+          display: block;
+          margin-bottom: 0.25rem;
+        }
+        .budget-warning-banner .warning-content p {
+          font-size: 0.8125rem;
+          color: #a16207;
+          margin: 0 0 0.75rem;
+          line-height: 1.4;
+        }
+        .btn-view-budget {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.375rem 0.75rem;
+          font-size: 0.8125rem;
+          font-weight: 500;
+          color: #92400e;
+          background: #fef3c7;
+          border: 1px solid #fbbf24;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .btn-view-budget:hover {
+          background: #fde68a;
+        }
+
+        /* Over-budget line highlighting */
+        .line-over-budget {
+          background: #fff7ed !important;
+        }
+        .line-over-budget td {
+          border-bottom-color: #fb923c !important;
+        }
+        .line-over-budget .analytics-value {
+          color: #ea580c !important;
+          font-weight: 600;
+        }
+
+        /* Save footer warning */
+        .save-footer {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          gap: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+        }
+        .save-warning-text {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #ea580c;
+        }
 
         @media (max-width: 768px) {
           .po-header { flex-direction: column; align-items: flex-start; }

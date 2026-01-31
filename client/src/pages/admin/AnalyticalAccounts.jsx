@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../api/axios';
-import { Plus, Search, MoreHorizontal, Briefcase, Hash, FileText, X, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Briefcase,
+  Hash,
+  FileText,
+  X,
+  Loader2,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react';
 
 export default function AnalyticalAccounts() {
   const [accounts, setAccounts] = useState([]);
@@ -8,54 +19,255 @@ export default function AnalyticalAccounts() {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [formData, setFormData] = useState({ name: '', code: '', description: '', isActive: true });
+  const [formData, setFormData] = useState({
+    name: '',
+    code: '',
+    description: '',
+    isActive: true,
+  });
 
-  useEffect(() => { fetchAccounts(); }, []);
-
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
   const fetchAccounts = async () => {
-    try { const { data } = await api.get('/analytical-accounts'); setAccounts(data.accounts || []); }
-    catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    try {
+      const { data } = await api.get('/analytical-accounts');
+      setAccounts(data.accounts || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); setSubmitting(true);
-    try { await api.post('/analytical-accounts', formData); setShowModal(false); setFormData({ name: '', code: '', description: '', isActive: true }); fetchAccounts(); }
-    catch (err) { alert('Failed to create account'); }
-    finally { setSubmitting(false); }
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.post('/analytical-accounts', formData);
+      setShowModal(false);
+      setFormData({ name: '', code: '', description: '', isActive: true });
+      fetchAccounts();
+    } catch (err) {
+      alert('Failed to create account');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const filteredAccounts = accounts.filter(a => a.name?.toLowerCase().includes(searchQuery.toLowerCase()) || a.code?.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredAccounts = accounts.filter(
+    (a) =>
+      a.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.code?.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   return (
-    <div className="page-container">
-      <div className="page-header"><div><h1>Cost Centers</h1><p>Manage analytical accounts for budget tracking</p></div><button className="btn-primary" onClick={() => setShowModal(true)}><Plus size={18} /><span>Add Account</span></button></div>
-      <div className="filters-bar"><div className="search-box"><Search size={18} /><input type="text" placeholder="Search accounts..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div></div>
-      <div className="card">
-        {loading ? <div className="loading-skeleton">{[1,2,3,4].map(i => <div key={i} className="skeleton-row"><div className="skeleton skeleton-circle" /><div className="skeleton skeleton-line" style={{width:'25%'}} /><div className="skeleton skeleton-line" style={{width:'15%'}} /><div className="skeleton skeleton-line" style={{width:'30%'}} /></div>)}</div>
-        : filteredAccounts.length === 0 ? <div className="empty-state"><div className="empty-icon"><Briefcase size={32} /></div><h3>No accounts found</h3><p>Add your first cost center</p><button className="btn-primary" onClick={() => setShowModal(true)}><Plus size={18} /><span>Add Account</span></button></div>
-        : <table className="table"><thead><tr><th>Account</th><th>Code</th><th>Description</th><th>Status</th><th></th></tr></thead><tbody>
-            {filteredAccounts.map((a) => (
-              <tr key={a.id}>
-                <td><div className="cell-with-avatar"><div className="avatar green"><Briefcase size={18} /></div><span className="primary-text">{a.name}</span></div></td>
-                <td><span className="badge code">{a.code}</span></td>
-                <td><span className="desc-text">{a.description || '—'}</span></td>
-                <td><span className={`status-badge ${a.isActive ? 'active' : 'inactive'}`}>{a.isActive ? <><CheckCircle size={12} /> Active</> : <><XCircle size={12} /> Inactive</>}</span></td>
-                <td><button className="icon-btn"><MoreHorizontal size={18} /></button></td>
-              </tr>
+    <div className='page-container'>
+      <div className='page-header'>
+        <div>
+          <h1>Cost Centers</h1>
+          <p>Manage analytical accounts for budget tracking</p>
+        </div>
+        <button className='btn-primary' onClick={() => setShowModal(true)}>
+          <Plus size={18} />
+          <span>Add Account</span>
+        </button>
+      </div>
+      <div className='filters-bar'>
+        <div className='search-box'>
+          <Search size={18} />
+          <input
+            type='text'
+            placeholder='Search accounts...'
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className='card'>
+        {loading ? (
+          <div className='loading-skeleton'>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className='skeleton-row'>
+                <div className='skeleton skeleton-circle' />
+                <div
+                  className='skeleton skeleton-line'
+                  style={{ width: '25%' }}
+                />
+                <div
+                  className='skeleton skeleton-line'
+                  style={{ width: '15%' }}
+                />
+                <div
+                  className='skeleton skeleton-line'
+                  style={{ width: '30%' }}
+                />
+              </div>
             ))}
-          </tbody></table>}
+          </div>
+        ) : filteredAccounts.length === 0 ? (
+          <div className='empty-state'>
+            <div className='empty-icon'>
+              <Briefcase size={32} />
+            </div>
+            <h3>No accounts found</h3>
+            <p>Add your first cost center</p>
+            <button className='btn-primary' onClick={() => setShowModal(true)}>
+              <Plus size={18} />
+              <span>Add Account</span>
+            </button>
+          </div>
+        ) : (
+          <table className='table'>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Code</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAccounts.map((a) => (
+                <tr key={a.id}>
+                  <td>
+                    <div className='cell-with-avatar'>
+                      <div className='avatar green'>
+                        <Briefcase size={18} />
+                      </div>
+                      <span className='primary-text'>{a.name}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span className='badge code'>{a.code}</span>
+                  </td>
+                  <td>
+                    <span className='desc-text'>{a.description || '—'}</span>
+                  </td>
+                  <td>
+                    <span
+                      className={`status-badge ${a.isActive ? 'active' : 'inactive'}`}
+                    >
+                      {a.isActive ? (
+                        <>
+                          <CheckCircle size={12} /> Active
+                        </>
+                      ) : (
+                        <>
+                          <XCircle size={12} /> Inactive
+                        </>
+                      )}
+                    </span>
+                  </td>
+                  <td>
+                    <button className='icon-btn'>
+                      <MoreHorizontal size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}><div className="modal" onClick={e => e.stopPropagation()}>
-          <div className="modal-header"><h2>Add Cost Center</h2><button className="close-btn" onClick={() => setShowModal(false)}><X size={20} /></button></div>
-          <form onSubmit={handleSubmit}><div className="modal-body">
-            <div className="form-group"><label>Account Name</label><div className="input-wrapper"><Briefcase size={18} className="input-icon" /><input type="text" required placeholder="Enter account name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} /></div></div>
-            <div className="form-group"><label>Account Code</label><div className="input-wrapper"><Hash size={18} className="input-icon" /><input type="text" required placeholder="e.g., ACC-001" value={formData.code} onChange={(e) => setFormData({...formData, code: e.target.value})} /></div></div>
-            <div className="form-group"><label>Description</label><div className="input-wrapper"><FileText size={18} className="input-icon" /><textarea placeholder="Brief description" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} /></div></div>
-            <label className="checkbox-label"><input type="checkbox" checked={formData.isActive} onChange={(e) => setFormData({...formData, isActive: e.target.checked})} /><span>Active Account</span></label>
-          </div><div className="modal-footer"><button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button><button type="submit" className="btn-primary" disabled={submitting}>{submitting ? <><Loader2 size={18} className="spin" /><span>Saving...</span></> : <><Plus size={18} /><span>Add Account</span></>}</button></div></form>
-        </div></div>
+        <div className='modal-overlay' onClick={() => setShowModal(false)}>
+          <div className='modal' onClick={(e) => e.stopPropagation()}>
+            <div className='modal-header'>
+              <h2>Add Cost Center</h2>
+              <button className='close-btn' onClick={() => setShowModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className='modal-body'>
+                <div className='form-group'>
+                  <label>Account Name</label>
+                  <div className='input-wrapper'>
+                    <Briefcase size={18} className='input-icon' />
+                    <input
+                      type='text'
+                      required
+                      placeholder='Enter account name'
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className='form-group'>
+                  <label>Account Code</label>
+                  <div className='input-wrapper'>
+                    <Hash size={18} className='input-icon' />
+                    <input
+                      type='text'
+                      required
+                      placeholder='e.g., ACC-001'
+                      value={formData.code}
+                      onChange={(e) =>
+                        setFormData({ ...formData, code: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className='form-group'>
+                  <label>Description</label>
+                  <div className='input-wrapper'>
+                    <FileText size={18} className='input-icon' />
+                    <textarea
+                      placeholder='Brief description'
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <label className='checkbox-label'>
+                  <input
+                    type='checkbox'
+                    checked={formData.isActive}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isActive: e.target.checked })
+                    }
+                  />
+                  <span>Active Account</span>
+                </label>
+              </div>
+              <div className='modal-footer'>
+                <button
+                  type='button'
+                  className='btn-secondary'
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type='submit'
+                  className='btn-primary'
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={18} className='spin' />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={18} />
+                      <span>Add Account</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
       <style>{`
         .page-container { max-width: 1400px; }

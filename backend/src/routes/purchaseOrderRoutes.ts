@@ -10,21 +10,45 @@ const router = Router();
 router.use(authenticate, adminOnly);
 
 router.get('/', purchaseOrderController.getAll);
-router.get('/:id', param('id').isUUID(), validateRequest, purchaseOrderController.getById);
-
-router.post('/',
-    [
-        body('vendorId').isUUID(),
-        body('lines').isArray({ min: 1 })
-    ],
-    validateRequest,
-    purchaseOrderController.create
+router.get(
+  '/:id',
+  param('id').isUUID(),
+  validateRequest,
+  purchaseOrderController.getById,
 );
 
-router.patch('/:id', param('id').isUUID(), validateRequest, purchaseOrderController.update);
-router.delete('/:id', param('id').isUUID(), validateRequest, purchaseOrderController.delete);
+router.post(
+  '/',
+  [body('vendorId').isUUID(), body('lines').isArray({ min: 1 })],
+  validateRequest,
+  purchaseOrderController.create,
+);
 
-router.post('/:id/confirm', param('id').isUUID(), validateRequest, purchaseOrderController.confirm);
-router.post('/:id/create-bill', param('id').isUUID(), body('dueDate').isISO8601(), validateRequest, purchaseOrderController.createBill);
+router.patch(
+  '/:id',
+  param('id').isUUID(),
+  validateRequest,
+  purchaseOrderController.update,
+);
+router.delete(
+  '/:id',
+  param('id').isUUID(),
+  validateRequest,
+  purchaseOrderController.delete,
+);
+
+router.post(
+  '/:id/confirm',
+  param('id').isUUID(),
+  validateRequest,
+  purchaseOrderController.confirm,
+);
+router.post(
+  '/:id/create-bill',
+  param('id').isUUID(),
+  body('dueDate').isISO8601(),
+  validateRequest,
+  purchaseOrderController.createBill,
+);
 
 export default router;
