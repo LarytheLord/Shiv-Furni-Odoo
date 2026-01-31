@@ -1,238 +1,146 @@
 # Shiv Furniture Budget Accounting System
 
-A comprehensive PERN stack (PostgreSQL, Express.js, React.js, Node.js) Budget Accounting System designed for Shiv Furniture.
+A comprehensive PERN stack (PostgreSQL, Express.js, React.js, Node.js) Budget Accounting System for furniture business management.
 
-## 🎯 Project Status
+## Features
 
-**Current Phase:** Docker & Database Setup Complete ✅
+- 🔐 **Authentication & Authorization** - JWT-based auth with Admin/Portal user roles
+- 👥 **Contact Management** - Customers and vendors with GSTIN support
+- 📦 **Product Catalog** - Products with categories, pricing, and tax rates
+- 💰 **Budget Management** - Cost center budgets with variance analysis
+- 🔄 **Auto-Analytical Rules** - Automatic cost center assignment
+- 📊 **Budget Alerts** - Threshold-based notifications (75%, 90%, 100%+)
+- 🛒 **Purchase Flow** - Purchase Orders → Vendor Bills → Payments
+- 🛍️ **Sales Flow** - Sales Orders → Customer Invoices → Payments
+- 📄 **PDF Generation** - Professional invoices and budget reports
+- 📈 **Dashboard** - Real-time budget utilization and activity feed
 
-### Completed
-- ✅ Backend foundation (config, middleware, services)
-- ✅ All controllers and routes
-- ✅ Prisma schema with 20+ models
-- ✅ Database seed file with demo data
-- ✅ Docker setup for PostgreSQL
-
-### In Progress
-- 🔄 Documentation
-
-### Note
-- 🚧 Frontend development is being handled by the frontend team.
-
-## 🐳 Quick Start with Docker
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/LarytheLord/Shiv-Furni-Odoo.git
-cd shiv-budget-accounting
-
-# 2. Start PostgreSQL with Docker
-docker-compose up -d postgres
-
-# 3. Setup backend
-cd backend
-npm install
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-
-# 4. Start the server
-npm run dev
-```
-
-**Or use the setup script:**
-```bash
-./scripts/setup-db.sh
-```
-
-## 📋 Features
-
-### Core Modules
-- **User Management** - Admin and portal user roles with authentication
-- **Contact Management** - Customers and vendors with full CRUD
-- **Product Management** - Products and categories with pricing
-- **Analytical Accounts** - Cost center tracking and budget allocation
-- **Auto-Analytical Rules** - Automatic cost center assignment based on configurable rules
-- **Budget Management** - Multi-line budgets with real-time tracking
-- **Budget Revisions** - Approval workflow for budget changes
-- **Budget Alerts** - Automatic threshold-based alerts (75%, 90%, 100%+)
-- **Purchase Orders** - Complete purchase workflow
-- **Vendor Bills** - Bill management with payment tracking
-- **Sales Orders** - Sales order processing
-- **Customer Invoices** - Invoice generation with PDF export
-- **Payments** - Payment recording for both bills and invoices
-- **Dashboard** - Real-time budget metrics and activity overview
-
-## 🏗️ Tech Stack
+## Tech Stack
 
 ### Backend
-- **Node.js** + **TypeScript**
-- **Express.js** - Web framework
-- **Prisma** - ORM for PostgreSQL
-- **JWT** - Authentication
-- **bcryptjs** - Password hashing
-- **PDFKit** - PDF generation
-- **express-validator** - Request validation
+- Node.js + Express.js
+- TypeScript
+- PostgreSQL with Prisma ORM
+- JWT Authentication
+- PDFKit for document generation
 
 ### Frontend (Coming Soon)
-- **React** + **TypeScript**
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling with dark theme
-- **Zustand** - State management
-- **Axios** - API client
+- React.js with Vite
+- TypeScript
+- Tailwind CSS (Dark theme with glassmorphism)
+- Zustand for state management
+- Recharts for visualizations
 
-### Database
-- **PostgreSQL** - Primary database
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js >= 18
-- PostgreSQL >= 14
-- npm or yarn
-
-### Backend Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/LarytheLord/Shiv-Furni-Odoo.git
-   cd shiv-budget-accounting/backend
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your database credentials
-   ```
-
-4. **Run migrations**
-   ```bash
-   npm run prisma:migrate
-   ```
-
-5. **Seed database**
-   ```bash
-   npm run prisma:seed
-   ```
-
-6. **Start development server**
-   ```bash
-   npm run dev
-   ```
-
-The backend API will be available at `http://localhost:5000`
-
-### Default Credentials
-
-After seeding, use these credentials to login:
-
-**Admin User:**
-- Email: `admin@shivfurniture.com`
-- Password: `Admin@123`
-
-**Portal User:**
-- Email: `portal@grandhotel.com`
-- Password: `Portal@123`
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 shiv-budget-accounting/
 ├── backend/
 │   ├── prisma/
-│   │   ├── schema.prisma      # Database schema
-│   │   └── seed.ts            # Seed data
+│   │   ├── schema.prisma    # Database schema
+│   │   └── seed.ts          # Demo data seeder
 │   ├── src/
-│   │   ├── config/            # Configuration files
-│   │   ├── controllers/       # Request handlers
-│   │   ├── middleware/        # Express middleware
-│   │   ├── routes/            # API routes
-│   │   ├── services/          # Business logic
-│   │   ├── types/             # TypeScript types
-│   │   ├── app.ts             # Express app setup
-│   │   └── index.ts           # Entry point
-│   ├── package.json
-│   └── tsconfig.json
-└── frontend/                  # Coming soon
+│   │   ├── config/          # Database, CORS, env config
+│   │   ├── controllers/     # Route handlers
+│   │   ├── middleware/      # Auth, role, validation
+│   │   ├── routes/          # API routes
+│   │   ├── services/        # Business logic
+│   │   ├── types/           # TypeScript interfaces
+│   │   ├── app.ts           # Express setup
+│   │   └── index.ts         # Entry point
+│   └── package.json
+└── frontend/                # Coming soon
 ```
 
-## 🔑 API Endpoints
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL 14+
+- npm or yarn
+
+### Backend Setup
+
+1. Navigate to backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your database credentials
+   ```
+
+4. Generate Prisma client:
+   ```bash
+   npm run prisma:generate
+   ```
+
+5. Run database migrations:
+   ```bash
+   npm run prisma:migrate
+   ```
+
+6. Seed the database (optional):
+   ```bash
+   npm run prisma:seed
+   ```
+
+7. Start development server:
+   ```bash
+   npm run dev
+   ```
+
+The API will be available at `http://localhost:3000`
+
+### Demo Credentials
+
+After seeding the database:
+- **Admin**: admin@shivfurniture.com / Admin@123
+- **Portal**: portal@grandhotel.com / Portal@123
+
+## API Endpoints
 
 ### Authentication
 - `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login
+- `POST /api/auth/login` - User login
 - `GET /api/auth/me` - Get current user
 - `PATCH /api/auth/password` - Update password
 
-### Budgets
-- `GET /api/budgets` - List budgets
-- `POST /api/budgets` - Create budget
-- `GET /api/budgets/:id` - Get budget details
-- `GET /api/budgets/:id/metrics` - Get budget metrics
-- `POST /api/budgets/:id/confirm` - Confirm budget
-- `GET /api/budgets/:id/export-pdf` - Export budget as PDF
+### Core Resources
+- `/api/users` - User management (Admin only)
+- `/api/contacts` - Customer/Vendor management
+- `/api/products` - Product catalog
+- `/api/analytical-accounts` - Cost centers
+- `/api/auto-analytical-rules` - Auto-assignment rules
+
+### Budget Management
+- `/api/budgets` - Budget CRUD and metrics
+- `/api/budget-revisions` - Revision workflow
+- `/api/budget-alerts` - Alert management
 
 ### Purchase Flow
-- `POST /api/purchase-orders` - Create PO
-- `POST /api/purchase-orders/:id/create-bill` - Convert to vendor bill
-- `POST /api/vendor-bills/:id/confirm` - Confirm bill
-- `POST /api/bill-payments` - Record payment
+- `/api/purchase-orders` - Purchase orders
+- `/api/vendor-bills` - Vendor bills
+- `/api/bill-payments` - Bill payments
 
 ### Sales Flow
-- `POST /api/sales-orders` - Create SO
-- `POST /api/sales-orders/:id/create-invoice` - Convert to invoice
-- `POST /api/customer-invoices/:id/confirm` - Confirm invoice
-- `POST /api/invoice-payments` - Record payment
+- `/api/sales-orders` - Sales orders
+- `/api/customer-invoices` - Customer invoices
+- `/api/invoice-payments` - Invoice payments
 
-*See full API documentation for complete endpoint list*
+### Dashboard
+- `/api/dashboard/summary` - Budget summary
+- `/api/dashboard/stats` - System statistics
+- `/api/dashboard/activity` - Recent activity
 
-## 🎨 Key Features
+## License
 
-### Auto-Analytical Assignment
-Automatically assigns cost centers to transaction lines based on:
-- Product or product category
-- Contact (customer/vendor)
-- Amount range
-- Date range
-- Transaction type (purchase/sale)
-
-### Budget Tracking
-- Real-time practical vs planned amount tracking
-- Theoretical amount based on time elapsed
-- Achievement percentage calculation
-- Variance analysis
-- Period-based projections
-
-### Alert System
-Automatic alerts when budget utilization reaches:
-- 75% (Warning)
-- 90% (High)
-- 100% (Critical)
-- Underutilization detection
-
-### PDF Generation
-Professional PDF documents for:
-- Customer invoices
-- Vendor bills
-- Budget reports
-
-## 👥 Contributing
-
-This is a private project for Shiv Furniture. Contact the administrators for contribution guidelines.
-
-## 📄 License
-
-Proprietary - All rights reserved
-
-## 📞 Support
-
-For support and queries, contact the development team.
-
----
-
-**Built with ❤️ for Shiv Furniture**
+MIT License
