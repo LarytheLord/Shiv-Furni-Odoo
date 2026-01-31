@@ -1,247 +1,100 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../api/axios';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, ShoppingCart, Calendar, User } from 'lucide-react';
 
 export default function Sales() {
   const [orders, setOrders] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ customer_id: '', order_date: '', lines: [] });
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchOrders(); }, []);
 
-  const fetchData = async () => {
-    try {
-      const [ordersRes, customersRes, productsRes] = await Promise.all([
-        api.get('/sales/orders'),
-        api.get('/contacts'), 
-        api.get('/products')
-      ]);
-      setOrders(ordersRes.data);
-      setCustomers(customersRes.data.filter(c => c.type === 'customer' || c.type === 'both'));
-      setProducts(productsRes.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+  const fetchOrders = async () => {
+    try { const { data } = await api.get('/sale-orders'); setOrders(data.orders || []); }
+    catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  const filtered = orders.filter(o => o.reference?.toLowerCase().includes(searchQuery.toLowerCase()) || o.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const getStatusStyle = (s) => {
+    switch (s) {
+      case 'DRAFT': return { bg: 'rgba(100, 116, 139, 0.15)', color: '#475569' };
+      case 'CONFIRMED': return { bg: 'rgba(59, 130, 246, 0.15)', color: '#2563eb' };
+      case 'DONE': return { bg: 'rgba(16, 185, 129, 0.15)', color: '#059669' };
+      case 'CANCELLED': return { bg: 'rgba(239, 68, 68, 0.15)', color: '#dc2626' };
+      default: return { bg: 'rgba(100, 116, 139, 0.15)', color: '#475569' };
     }
   };
 
-  const addLine = () => {
-    setFormData({
-      ...formData,
-      lines: [...formData.lines, { product_id: '', quantity: 1, unit_price: 0, analytical_account_id: null }]
-    });
-  };
-
-  const updateLine = (index, field, value) => {
-    const newLines = [...formData.lines];
-    newLines[index][field] = value;
-    
-    if (field === 'product_id') {
-      const product = products.find(p => p.id == value);
-      if (product) {
-        newLines[index].unit_price = product.selling_price; // use selling price for SO
-      }
-    }
-    setFormData({ ...formData, lines: newLines });
-  };
-
-  const removeLine = (index) => {
-    const newLines = formData.lines.filter((_, i) => i !== index);
-    setFormData({ ...formData, lines: newLines });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (formData.lines.length === 0) return alert('Add at least one product');
-      await api.post('/sales/orders', formData);
-      setShowModal(false);
-      setFormData({ customer_id: '', order_date: '', lines: [] });
-      fetchData();
-    } catch (err) {
-      alert('Failed to create order');
-    }
-  };
-
-  if (loading) return <div>Loading...</div>;
+  const fmt = (a) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(a || 0);
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Sales Orders</h2>
-        <button
-          onClick={() => {
-              setFormData({ customer_id: '', order_date: new Date().toISOString().split('T')[0], lines: [] });
-              setShowModal(true);
-          }}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-        >
-          <Plus size={16} className="mr-2" />
-          Create SO
-        </button>
+    <div className="page-container">
+      <div className="page-header"><div><h1>Sales Orders</h1><p>Manage customer orders and quotations</p></div><button className="btn-primary"><Plus size={18} /><span>New Order</span></button></div>
+      <div className="filters-bar"><div className="search-box"><Search size={18} /><input type="text" placeholder="Search orders..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div></div>
+      <div className="card">
+        {loading ? <div className="loading-skeleton">{[1,2,3,4].map(i => <div key={i} className="skeleton-row"><div className="skeleton skeleton-circle" /><div className="skeleton skeleton-line" style={{width:'20%'}} /><div className="skeleton skeleton-line" style={{width:'15%'}} /><div className="skeleton skeleton-line" style={{width:'15%'}} /></div>)}</div>
+        : filtered.length === 0 ? <div className="empty-state"><div className="empty-icon"><ShoppingCart size={32} /></div><h3>No sales orders found</h3><p>Create your first sales order</p></div>
+        : <table className="table"><thead><tr><th>Reference</th><th>Customer</th><th>Date</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>
+            {filtered.map((o) => {
+              const st = getStatusStyle(o.status);
+              return (
+                <tr key={o.id}>
+                  <td><div className="cell-with-avatar"><div className="avatar blue"><ShoppingCart size={18} /></div><span className="primary-text">{o.reference}</span></div></td>
+                  <td><div className="cell-with-icon"><User size={14} /><span>{o.customer?.name || '—'}</span></div></td>
+                  <td><div className="cell-with-icon"><Calendar size={14} /><span>{new Date(o.orderDate).toLocaleDateString()}</span></div></td>
+                  <td><span className="amount income">{fmt(o.totalAmount)}</span></td>
+                  <td><span className="badge" style={{background: st.bg, color: st.color}}>{o.status}</span></td>
+                  <td><button className="icon-btn"><MoreHorizontal size={18} /></button></td>
+                </tr>
+              );
+            })}
+          </tbody></table>}
       </div>
-
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {orders.map((order) => (
-              <tr key={order.id}>
-                <td className="px-6 py-4 whitespace-nowrap">SO-{order.id}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{order.customer_name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{new Date(order.order_date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap font-bold">${order.total_amount}</td>
-                <td className="px-6 py-4 whitespace-nowrap uppercase text-sm">{order.state}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                    {order.state === 'draft' && (
-                        <button 
-                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                            onClick={async () => {
-                                if(window.confirm('Confirm this SO?')) {
-                                    await api.post(`/sales/orders/${order.id}/confirm`);
-                                    fetchData();
-                                }
-                            }}
-                        >
-                            Confirm
-                        </button>
-                    )}
-                    {order.state === 'confirmed' && (
-                        <button 
-                            className="text-green-600 hover:text-green-900 text-sm font-medium ml-2"
-                            onClick={async () => {
-                                if(window.confirm('Create Invoice from this SO?')) {
-                                    await api.post(`/sales/invoices/from-so`, { sales_order_id: order.id });
-                                    alert('Invoice created!');
-                                }
-                            }}
-                        >
-                            Create Invoice
-                        </button>
-                    )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center overflow-y-auto">
-          <div className="bg-white p-6 rounded-lg w-full max-w-2xl my-8">
-            <h3 className="text-lg font-bold mb-4">Create Sales Order</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Customer</label>
-                    <select
-                      required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 sm:text-sm"
-                      value={formData.customer_id}
-                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                    >
-                      <option value="">Select Customer</option>
-                      {customers.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Order Date</label>
-                    <input
-                      type="date"
-                      required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 sm:text-sm"
-                      value={formData.order_date}
-                      onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
-                    />
-                  </div>
-              </div>
-              
-              <div className="border-t pt-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-sm font-medium text-gray-700">Order Lines</h4>
-                    <button type="button" onClick={addLine} className="text-sm text-indigo-600 hover:text-indigo-900 flex items-center">
-                        <Plus size={14} className="mr-1"/> Add Product
-                    </button>
-                  </div>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {formData.lines.map((line, index) => (
-                          <div key={index} className="flex gap-2 items-end bg-gray-50 p-2 rounded">
-                              <div className="flex-1">
-                                  <label className="block text-xs text-gray-500">Product</label>
-                                  <select 
-                                      className="w-full text-sm border-gray-300 rounded"
-                                      value={line.product_id}
-                                      onChange={(e) => updateLine(index, 'product_id', e.target.value)}
-                                      required
-                                  >
-                                      <option value="">Select</option>
-                                      {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                  </select>
-                              </div>
-                              <div className="w-20">
-                                  <label className="block text-xs text-gray-500">Qty</label>
-                                  <input 
-                                      type="number" 
-                                      className="w-full text-sm border-gray-300 rounded"
-                                      value={line.quantity}
-                                      onChange={(e) => updateLine(index, 'quantity', e.target.value)}
-                                      min="1" required
-                                  />
-                              </div>
-                              <div className="w-24">
-                                  <label className="block text-xs text-gray-500">Price</label>
-                                  <input 
-                                      type="number" 
-                                      className="w-full text-sm border-gray-300 rounded"
-                                      value={line.unit_price}
-                                      onChange={(e) => updateLine(index, 'unit_price', e.target.value)}
-                                      min="0" required
-                                  />
-                              </div>
-                              <button type="button" onClick={() => removeLine(index)} className="text-red-500 p-2">
-                                  <Trash2 size={16} />
-                              </button>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-                >
-                  Create Order
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <style>{`
+        .page-container { max-width: 1400px; }
+        .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; }
+        .page-header h1 { font-size: 1.75rem; font-weight: 700; color: #0f172a; margin: 0 0 0.25rem; letter-spacing: -0.025em; }
+        .page-header p { font-size: 0.9375rem; color: #64748b; margin: 0; }
+        .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 600; color: white; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(249, 115, 22, 0.45); }
+        .filters-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+        .search-box { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; flex: 1; max-width: 400px; transition: all 0.2s; }
+        .search-box:focus-within { border-color: #f97316; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12); }
+        .search-box svg { color: #94a3b8; }
+        .search-box input { border: none; outline: none; background: none; font-size: 0.875rem; color: #0f172a; width: 100%; }
+        .search-box input::placeholder { color: #94a3b8; }
+        .card { background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04); overflow: hidden; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th { padding: 1rem 1.5rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .table td { padding: 1rem 1.5rem; font-size: 0.875rem; color: #334155; border-bottom: 1px solid #f1f5f9; }
+        .table tbody tr { transition: background 0.15s; }
+        .table tbody tr:hover { background: #fafafa; }
+        .table tbody tr:last-child td { border-bottom: none; }
+        .cell-with-avatar { display: flex; align-items: center; gap: 0.75rem; }
+        .avatar { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; }
+        .avatar.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+        .primary-text { font-weight: 500; color: #0f172a; }
+        .cell-with-icon { display: flex; align-items: center; gap: 0.5rem; color: #64748b; }
+        .cell-with-icon svg { color: #94a3b8; }
+        .amount { font-family: 'SF Mono', Monaco, monospace; font-weight: 600; }
+        .amount.income { color: #059669; }
+        .badge { display: inline-flex; padding: 0.3rem 0.75rem; font-size: 0.75rem; font-weight: 600; border-radius: 6px; }
+        .icon-btn { background: none; border: none; padding: 0.375rem; color: #94a3b8; cursor: pointer; border-radius: 6px; transition: all 0.2s; }
+        .icon-btn:hover { background: #f1f5f9; color: #475569; }
+        .loading-skeleton { padding: 1rem; }
+        .skeleton-row { display: flex; align-items: center; gap: 1.5rem; padding: 1rem 1.5rem; border-bottom: 1px solid #f1f5f9; }
+        .skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+        .skeleton-circle { width: 38px; height: 38px; border-radius: 10px; }
+        .skeleton-line { height: 14px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .empty-state { display: flex; flex-direction: column; align-items: center; padding: 4rem 2rem; text-align: center; }
+        .empty-icon { width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: white; margin-bottom: 1.25rem; }
+        .empty-state h3 { font-size: 1.125rem; font-weight: 600; color: #0f172a; margin: 0 0 0.5rem; }
+        .empty-state p { font-size: 0.875rem; color: #64748b; margin: 0; }
+        @media (max-width: 768px) { .page-header { flex-direction: column; gap: 1rem; } .search-box { max-width: none; } .table th:nth-child(3), .table td:nth-child(3) { display: none; } }
+      `}</style>
     </div>
   );
 }

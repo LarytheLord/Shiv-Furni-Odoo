@@ -18,7 +18,8 @@ export const userController = {
             if (search) {
                 where.OR = [
                     { name: { contains: String(search), mode: 'insensitive' } },
-                    { email: { contains: String(search), mode: 'insensitive' } }
+                    { email: { contains: String(search), mode: 'insensitive' } },
+                    { loginId: { contains: String(search), mode: 'insensitive' } }
                 ];
             }
 
@@ -31,6 +32,7 @@ export const userController = {
                     where,
                     select: {
                         id: true,
+                        loginId: true,
                         email: true,
                         name: true,
                         role: true,
@@ -75,6 +77,7 @@ export const userController = {
                 where: { id },
                 select: {
                     id: true,
+                    loginId: true,
                     email: true,
                     name: true,
                     role: true,
@@ -105,14 +108,22 @@ export const userController = {
      */
     async create(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
-            const { email, password, name, role, contactId } = req.body;
+            const { email, loginId, password, name, role, contactId } = req.body;
 
-            const existingUser = await prisma.user.findUnique({
-                where: { email }
+            const existingUser = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { email },
+                        { loginId }
+                    ]
+                }
             });
 
             if (existingUser) {
-                throw new ApiError('Email already registered', 400);
+                if (existingUser.email === email) {
+                    throw new ApiError('Email already registered', 400);
+                }
+                throw new ApiError('Login ID already taken', 400);
             }
 
             const hashedPassword = await bcrypt.hash(password, 12);
@@ -120,6 +131,7 @@ export const userController = {
             const user = await prisma.user.create({
                 data: {
                     email,
+                    loginId,
                     password: hashedPassword,
                     name,
                     role: role || 'PORTAL_USER',
@@ -127,6 +139,7 @@ export const userController = {
                 },
                 select: {
                     id: true,
+                    loginId: true,
                     email: true,
                     name: true,
                     role: true,
@@ -153,19 +166,38 @@ export const userController = {
     async update(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const { id } = req.params;
-            const { name, email, role, isActive, contactId } = req.body;
+            const { name, email, loginId, role, isActive, contactId } = req.body;
+
+            // Check if loginId or email is taken by other user
+            if (loginId || email) {
+                const existingUser = await prisma.user.findFirst({
+                    where: {
+                        OR: [
+                            ...(email ? [{ email }] : []),
+                            ...(loginId ? [{ loginId }] : [])
+                        ],
+                        NOT: { id }
+                    }
+                });
+
+                if (existingUser) {
+                    throw new ApiError('Email or Login ID already taken', 400);
+                }
+            }
 
             const user = await prisma.user.update({
                 where: { id },
                 data: {
                     ...(name && { name }),
                     ...(email && { email }),
+                    ...(loginId && { loginId }),
                     ...(role && { role }),
                     ...(typeof isActive === 'boolean' && { isActive }),
                     ...(contactId !== undefined && { contactId })
                 },
                 select: {
                     id: true,
+                    loginId: true,
                     email: true,
                     name: true,
                     role: true,

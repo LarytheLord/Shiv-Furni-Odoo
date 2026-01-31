@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const { data } = await api.get('/auth/me');
-          setUser(data);
+          setUser(data.user);
         } catch (err) {
           localStorage.removeItem('token');
         }
@@ -23,8 +23,9 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password });
+  const login = async (identifier, password) => {
+    // Send identifier as 'email' property since backend checks email || loginId
+    const { data } = await api.post('/auth/login', { email: identifier, password });
     localStorage.setItem('token', data.token);
     setUser(data.user);
     return data.user;

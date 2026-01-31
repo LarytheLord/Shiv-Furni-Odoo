@@ -1,6 +1,8 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import AdminLayout from './layouts/AdminLayout';
 import PortalLayout from './layouts/PortalLayout';
 import PrivateRoute from './components/PrivateRoute';
@@ -25,6 +27,7 @@ import Invoices from './pages/admin/Invoices';
 import Payments from './pages/admin/Payments';
 
 import Analytics from './pages/admin/Analytics';
+import Users from './pages/admin/Users';
 
 // Placeholder Pages
 const Placeholder = ({ title }) => (
@@ -36,6 +39,8 @@ function App() {
     <AuthProvider>
       <Routes>
         <Route path='/login' element={<Login />} />
+        <Route path='/signup' element={<Signup />} />
+        <Route path='/forgot-password' element={<ForgotPassword />} />
 
         {/* Admin Routes */}
         <Route
@@ -57,6 +62,7 @@ function App() {
           <Route path='invoices' element={<Invoices />} />
           <Route path='payments' element={<Payments />} />
           <Route path='analytics' element={<Analytics />} />
+          <Route path='users' element={<Users />} />
         </Route>
 
         {/* Portal Routes */}

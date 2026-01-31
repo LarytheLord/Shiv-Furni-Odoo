@@ -23,6 +23,9 @@
             "@/*": [
                 "./*"
             ],
+            "@scripts/*": [
+                "scripts/*"
+            ],
             "@config/*": [
                 "config/*"
             ],
@@ -50,8 +53,7 @@
         }
     },
     "include": [
-        "src/**/*",
-        "prisma/seed.ts"
+        "src/**/*"
     ],
     "exclude": [
         "node_modules",

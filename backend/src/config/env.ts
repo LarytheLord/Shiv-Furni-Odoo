@@ -22,7 +22,7 @@ function getEnvVar(key: string, defaultValue?: string): string {
 
 export const env: Environment = {
     NODE_ENV: getEnvVar('NODE_ENV', 'development'),
-    PORT: parseInt(getEnvVar('PORT', '5000'), 10),
+    PORT: parseInt(getEnvVar('PORT', '5001'), 10),
     DATABASE_URL: getEnvVar('DATABASE_URL'),
     JWT_SECRET: getEnvVar('JWT_SECRET'),
     JWT_EXPIRES_IN: getEnvVar('JWT_EXPIRES_IN', '7d'),
