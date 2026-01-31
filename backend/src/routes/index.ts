@@ -17,6 +17,7 @@ import customerInvoiceRoutes from './customerInvoiceRoutes';
 import invoicePaymentRoutes from './invoicePaymentRoutes';
 import dashboardRoutes from './dashboardRoutes';
 import analyticsRoutes from './analyticsRoutes';
+import portalRoutes from './portalRoutes';
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use('/customer-invoices', customerInvoiceRoutes);
 router.use('/invoice-payments', invoicePaymentRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/portal', portalRoutes);
 
 export default router;

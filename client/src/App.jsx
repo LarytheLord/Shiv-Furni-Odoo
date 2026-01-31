@@ -33,6 +33,19 @@ import AutoModelList from './pages/admin/analytics/AutoModelList';
 import AutoModelForm from './pages/admin/analytics/AutoModelForm';
 
 import Users from './pages/admin/Users';
+import PortalDashboard from './pages/portal/PortalDashboard';
+
+// Customer Pages
+import CustomerOrders from './pages/portal/customer/CustomerOrders';
+import CustomerOrderDetails from './pages/portal/customer/CustomerOrderDetails';
+import CustomerInvoices from './pages/portal/customer/CustomerInvoices';
+import CustomerInvoiceDetails from './pages/portal/customer/CustomerInvoiceDetails';
+
+// Vendor Pages
+import VendorOrders from './pages/portal/vendor/VendorOrders';
+import VendorOrderDetails from './pages/portal/vendor/VendorOrderDetails';
+import VendorBills from './pages/portal/vendor/VendorBills';
+import VendorBillDetails from './pages/portal/vendor/VendorBillDetails';
 
 // Placeholder Pages
 const Placeholder = ({ title }) => (
@@ -97,14 +110,20 @@ function App() {
             </PrivateRoute>
           }
         >
-          <Route
-            path='customer'
-            element={<Placeholder title='Customer Dashboard' />}
-          />
-          <Route
-            path='vendor'
-            element={<Placeholder title='Vendor Dashboard' />}
-          />
+
+          {/* Customer Routes */}
+          <Route path='customer' element={<PortalDashboard />} />
+          <Route path='customer/orders' element={<CustomerOrders />} />
+          <Route path='customer/orders/:id' element={<CustomerOrderDetails />} />
+          <Route path='customer/invoices' element={<CustomerInvoices />} />
+          <Route path='customer/invoices/:id' element={<CustomerInvoiceDetails />} />
+
+          {/* Vendor Routes */}
+          <Route path='vendor' element={<PortalDashboard />} />
+          <Route path='vendor/orders' element={<VendorOrders />} />
+          <Route path='vendor/orders/:id' element={<VendorOrderDetails />} />
+          <Route path='vendor/bills' element={<VendorBills />} />
+          <Route path='vendor/bills/:id' element={<VendorBillDetails />} />
         </Route>
 
         <Route path='/' element={<Login />} />
