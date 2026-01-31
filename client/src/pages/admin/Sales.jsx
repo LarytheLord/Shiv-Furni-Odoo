@@ -8,7 +8,7 @@ export default function Sales() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ customer_id: '', order_date: '', lines: [] });
+  const [formData, setFormData] = useState({ customerId: '', orderDate: '', lines: [] });
 
   useEffect(() => {
     fetchData();
@@ -17,13 +17,13 @@ export default function Sales() {
   const fetchData = async () => {
     try {
       const [ordersRes, customersRes, productsRes] = await Promise.all([
-        api.get('/sales/orders'),
-        api.get('/contacts'), 
+        api.get('/sales-orders'),
+        api.get('/contacts/customers'),
         api.get('/products')
       ]);
-      setOrders(ordersRes.data);
-      setCustomers(customersRes.data.filter(c => c.type === 'customer' || c.type === 'both'));
-      setProducts(productsRes.data);
+      setOrders(ordersRes.data.orders || []);
+      setCustomers(customersRes.data.customers || customersRes.data || []);
+      setProducts(productsRes.data.products || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -34,7 +34,7 @@ export default function Sales() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { product_id: '', quantity: 1, unit_price: 0, analytical_account_id: null }]
+      lines: [...formData.lines, { productId: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
     });
   };
 
@@ -42,10 +42,11 @@ export default function Sales() {
     const newLines = [...formData.lines];
     newLines[index][field] = value;
     
-    if (field === 'product_id') {
-      const product = products.find(p => p.id == value);
+    if (field === 'productId') {
+      const product = products.find(p => p.id === value);
       if (product) {
-        newLines[index].unit_price = product.selling_price; // use selling price for SO
+        newLines[index].unitPrice = product.salePrice || 0;
+        newLines[index].taxRate = product.taxRate || 0;
       }
     }
     setFormData({ ...formData, lines: newLines });
@@ -60,9 +61,9 @@ export default function Sales() {
     e.preventDefault();
     try {
       if (formData.lines.length === 0) return alert('Add at least one product');
-      await api.post('/sales/orders', formData);
+      await api.post('/sales-orders', formData);
       setShowModal(false);
-      setFormData({ customer_id: '', order_date: '', lines: [] });
+      setFormData({ customerId: '', orderDate: '', lines: [] });
       fetchData();
     } catch (err) {
       alert('Failed to create order');
@@ -77,7 +78,7 @@ export default function Sales() {
         <h2 className="text-2xl font-bold">Sales Orders</h2>
         <button
           onClick={() => {
-              setFormData({ customer_id: '', order_date: new Date().toISOString().split('T')[0], lines: [] });
+              setFormData({ customerId: '', orderDate: new Date().toISOString().split('T')[0], lines: [] });
               setShowModal(true);
           }}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -102,18 +103,18 @@ export default function Sales() {
           <tbody className="bg-white divide-y divide-gray-200">
             {orders.map((order) => (
               <tr key={order.id}>
-                <td className="px-6 py-4 whitespace-nowrap">SO-{order.id}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{order.customer_name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{new Date(order.order_date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap font-bold">${order.total_amount}</td>
-                <td className="px-6 py-4 whitespace-nowrap uppercase text-sm">{order.state}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{order.soNumber}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{order.customer?.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{new Date(order.orderDate).toLocaleDateString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap font-bold">₹{Number(order.total).toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap uppercase text-sm">{order.status}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                    {order.state === 'draft' && (
+                    {order.status === 'DRAFT' && (
                         <button 
                             className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
                             onClick={async () => {
                                 if(window.confirm('Confirm this SO?')) {
-                                    await api.post(`/sales/orders/${order.id}/confirm`);
+                                    await api.post(`/sales-orders/${order.id}/confirm`);
                                     fetchData();
                                 }
                             }}
@@ -121,13 +122,15 @@ export default function Sales() {
                             Confirm
                         </button>
                     )}
-                    {order.state === 'confirmed' && (
+                    {order.status === 'CONFIRMED' && (
                         <button 
                             className="text-green-600 hover:text-green-900 text-sm font-medium ml-2"
                             onClick={async () => {
-                                if(window.confirm('Create Invoice from this SO?')) {
-                                    await api.post(`/sales/invoices/from-so`, { sales_order_id: order.id });
+                                const dueDate = prompt('Enter due date (YYYY-MM-DD):', new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]);
+                                if(dueDate) {
+                                    await api.post(`/sales-orders/${order.id}/create-invoice`, { dueDate });
                                     alert('Invoice created!');
+                                    fetchData();
                                 }
                             }}
                         >
@@ -152,8 +155,8 @@ export default function Sales() {
                     <select
                       required
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 sm:text-sm"
-                      value={formData.customer_id}
-                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                      value={formData.customerId}
+                      onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
                     >
                       <option value="">Select Customer</option>
                       {customers.map(c => (
@@ -167,8 +170,8 @@ export default function Sales() {
                       type="date"
                       required
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 sm:text-sm"
-                      value={formData.order_date}
-                      onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
+                      value={formData.orderDate}
+                      onChange={(e) => setFormData({ ...formData, orderDate: e.target.value })}
                     />
                   </div>
               </div>
@@ -187,8 +190,8 @@ export default function Sales() {
                                   <label className="block text-xs text-gray-500">Product</label>
                                   <select 
                                       className="w-full text-sm border-gray-300 rounded"
-                                      value={line.product_id}
-                                      onChange={(e) => updateLine(index, 'product_id', e.target.value)}
+                                      value={line.productId}
+                                      onChange={(e) => updateLine(index, 'productId', e.target.value)}
                                       required
                                   >
                                       <option value="">Select</option>
@@ -201,7 +204,7 @@ export default function Sales() {
                                       type="number" 
                                       className="w-full text-sm border-gray-300 rounded"
                                       value={line.quantity}
-                                      onChange={(e) => updateLine(index, 'quantity', e.target.value)}
+                                      onChange={(e) => updateLine(index, 'quantity', parseInt(e.target.value))}
                                       min="1" required
                                   />
                               </div>
@@ -210,8 +213,8 @@ export default function Sales() {
                                   <input 
                                       type="number" 
                                       className="w-full text-sm border-gray-300 rounded"
-                                      value={line.unit_price}
-                                      onChange={(e) => updateLine(index, 'unit_price', e.target.value)}
+                                      value={line.unitPrice}
+                                      onChange={(e) => updateLine(index, 'unitPrice', parseFloat(e.target.value))}
                                       min="0" required
                                   />
                               </div>

@@ -11,8 +11,8 @@ export default function Invoices() {
 
   const fetchInvoices = async () => {
     try {
-      const { data } = await api.get('/sales/invoices');
-      setInvoices(data);
+      const { data } = await api.get('/customer-invoices');
+      setInvoices(data.invoices || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -20,32 +20,34 @@ export default function Invoices() {
     }
   };
 
-  const payInvoice = async (id, amount) => {
-      // Simplistic payment flow for demo: Receive full amount
-      if(!window.confirm('Register full payment for this invoice?')) return;
+  const payInvoice = async (id) => {
+      const invoice = invoices.find(i => i.id === id);
+      const remainingAmount = Number(invoice.amountDue);
+      if (remainingAmount <= 0) {
+        alert('Invoice is already fully paid');
+        return;
+      }
+      if(!window.confirm(`Register payment of ₹${remainingAmount.toLocaleString()} for this invoice?`)) return;
       try {
-          const invoice = invoices.find(i => i.id === id);
-          await api.post('/payments', {
-              type: 'inbound',
-              partner_id: invoice.customer_id,
-              amount: invoice.total_amount - (invoice.paid_amount || 0),
-              invoice_id: id,
-              reference: `PAY-INV-${id}`
+          await api.post('/invoice-payments', {
+              customerInvoiceId: id,
+              amount: remainingAmount,
+              paymentMethod: 'BANK_TRANSFER'
           });
           alert('Payment recorded');
           fetchInvoices();
       } catch (err) {
-          alert('Payment failed');
+          alert('Payment failed: ' + (err.message || 'Unknown error'));
       }
   };
 
-  const postInvoice = async (id) => {
-      if(!window.confirm('Post this invoice to update actuals?')) return;
+  const confirmInvoice = async (id) => {
+      if(!window.confirm('Confirm this invoice?')) return;
       try {
-          await api.post(`/sales/invoices/${id}/post`);
+          await api.post(`/customer-invoices/${id}/confirm`);
           fetchInvoices();
       } catch (err) {
-          alert('Failed to post invoice');
+          alert('Failed to confirm invoice');
       }
   };
 
@@ -64,31 +66,40 @@ export default function Invoices() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">State</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {invoices.map((invoice) => (
               <tr key={invoice.id}>
-                <td className="px-6 py-4 whitespace-nowrap">INV-{invoice.id}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{invoice.customer_name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{new Date(invoice.invoice_date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap font-bold">${invoice.total_amount}</td>
-                <td className="px-6 py-4 whitespace-nowrap">${invoice.paid_amount || 0}</td>
-                <td className="px-6 py-4 whitespace-nowrap capitalize">{invoice.payment_status}</td>
-                <td className="px-6 py-4 whitespace-nowrap capitalize">{invoice.state}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{invoice.invoiceNumber}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{invoice.customer?.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{new Date(invoice.invoiceDate || invoice.createdAt).toLocaleDateString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap font-bold">₹{Number(invoice.total).toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">₹{Number(invoice.amountPaid || 0).toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">₹{Number(invoice.amountDue || 0).toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    invoice.status === 'PAID' ? 'bg-green-100 text-green-800' :
+                    invoice.status === 'PARTIALLY_PAID' ? 'bg-yellow-100 text-yellow-800' :
+                    invoice.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {invoice.status}
+                  </span>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                    {invoice.state === 'draft' && (
+                    {invoice.status === 'DRAFT' && (
                         <button 
                             className="text-blue-600 hover:text-blue-900 text-sm font-medium"
-                            onClick={() => postInvoice(invoice.id)}
+                            onClick={() => confirmInvoice(invoice.id)}
                         >
-                            Post
+                            Confirm
                         </button>
                     )}
-                    {invoice.state === 'posted' && invoice.payment_status !== 'paid' && (
+                    {(invoice.status === 'CONFIRMED' || invoice.status === 'PARTIALLY_PAID') && Number(invoice.amountDue) > 0 && (
                         <button 
                             className="text-green-600 hover:text-green-900 text-sm font-medium"
                             onClick={() => payInvoice(invoice.id)}

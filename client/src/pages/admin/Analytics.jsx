@@ -63,14 +63,14 @@ export default function Analytics() {
             {data.map((item) => (
               <tr key={item.budget_id}>
                 <td className="px-6 py-4 whitespace-nowrap">{item.analytical_account}</td>
-                <td className="px-6 py-4 whitespace-nowrap">${item.budget_amount}</td>
-                <td className="px-6 py-4 whitespace-nowrap">${item.actual_expense}</td>
-                <td className="px-6 py-4 whitespace-nowrap">${item.actual_income}</td>
-                <td className={`px-6 py-4 whitespace-nowrap font-bold ${item.variance_expense < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    ${item.variance_expense}
+                <td className="px-6 py-4 whitespace-nowrap">₹{Number(item.budget_amount || 0).toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">₹{Number(item.actual_expense || 0).toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">₹{Number(item.actual_income || 0).toLocaleString()}</td>
+                <td className={`px-6 py-4 whitespace-nowrap font-bold ${(item.variance_expense || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    ₹{Number(item.variance_expense || 0).toLocaleString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                    {item.achievement_expense_pct.toFixed(2)}%
+                    {(item.achievement_expense_pct || 0).toFixed(2)}%
                 </td>
               </tr>
             ))}
