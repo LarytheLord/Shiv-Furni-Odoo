@@ -29,7 +29,7 @@ const generateInvoiceNumber = async (): Promise<string> => {
 };
 
 export const customerInvoiceController = {
-  async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { page = 1, limit = 20, search, status, customerId } = req.query;
       const skip = (Number(page) - 1) * Number(limit);
@@ -39,7 +39,13 @@ export const customerInvoiceController = {
           { invoiceNumber: { contains: String(search), mode: 'insensitive' } },
         ];
       if (status) where.status = String(status);
-      if (customerId) where.customerId = String(customerId);
+
+      if (req.user?.role === 'PORTAL_USER') {
+        if (!req.user.contactId) throw new ApiError('Portal user has no linked contact', 400);
+        where.customerId = req.user.contactId;
+      } else if (customerId) {
+        where.customerId = String(customerId);
+      }
 
       const [invoices, total] = await Promise.all([
         prisma.customerInvoice.findMany({
@@ -92,7 +98,7 @@ export const customerInvoiceController = {
   },
 
   async getById(
-    req: Request,
+    req: AuthRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -106,6 +112,11 @@ export const customerInvoiceController = {
         },
       });
       if (!invoice) throw new ApiError('Invoice not found', 404);
+
+      // Guardrail
+      if (req.user?.role === 'PORTAL_USER' && invoice.customerId !== req.user.contactId) {
+        throw new ApiError('Unauthorized access', 403);
+      }
       res.json({ status: 'success', data: { invoice } });
     } catch (error) {
       next(error);

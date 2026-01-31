@@ -1,163 +1,366 @@
-import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User } from 'lucide-react';
+import {
+  LogOut,
+  User,
+  LayoutDashboard,
+  ShoppingCart,
+  FileText,
+  Menu,
+  X,
+  CreditCard,
+  Package
+} from 'lucide-react';
 
 export default function PortalLayout() {
   const { logout, user } = useAuth();
+  const location = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Determine navigation based on user role/type
+  const getNavItems = () => {
+    // Default to customer if not specified
+    const type = user?.contactType || 'CUSTOMER';
+
+    if (type === 'VENDOR') {
+      return [
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/portal/vendor' },
+        { icon: Package, label: 'Purchase Orders', path: '/portal/vendor/orders' },
+        { icon: FileText, label: 'My Bills', path: '/portal/vendor/bills' },
+      ];
+    }
+
+    // Customer Items
+    return [
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/portal/customer' },
+      { icon: ShoppingCart, label: 'My Orders', path: '/portal/customer/orders' },
+      { icon: FileText, label: 'Invoices', path: '/portal/customer/invoices' },
+    ];
+  };
+
+  const navItems = getNavItems();
 
   return (
     <div className="portal-layout">
-      <nav className="portal-nav">
-        <div className="nav-content">
-          <div className="nav-brand">
-            <div className="brand-icon">S</div>
-            <h1>Shiv Furniture</h1>
+      {/* Sidebar Navigation */}
+      <aside className={`portal-sidebar ${isMobileMenuOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <div className="brand-logo">S</div>
+          <h2>Shiv Furniture</h2>
+          <button
+            className="mobile-close-btn"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="user-profile-summary">
+          <div className="user-avatar">
+            <span>{user?.name?.charAt(0) || 'U'}</span>
           </div>
-          <div className="nav-user">
-            <div className="user-info">
-              <div className="user-avatar">
-                <User size={16} />
-              </div>
-              <span>{user?.name}</span>
-            </div>
-            <button onClick={logout} className="logout-btn">
-              <LogOut size={18} />
-              <span>Logout</span>
-            </button>
+          <div className="user-details">
+            <span className="user-name">{user?.name}</span>
+            <span className="user-role">{user?.contactType || 'Portal User'}</span>
           </div>
         </div>
-      </nav>
-      <main className="portal-main">
-        <Outlet />
-      </main>
+
+        <nav className="sidebar-nav">
+          <ul>
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+              return (
+                <li key={item.path}>
+                  <Link
+                    to={item.path}
+                    className={`nav-item ${isActive ? 'active' : ''}`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <item.icon size={20} />
+                    <span>{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <div className="sidebar-footer">
+          <button onClick={logout} className="logout-btn">
+            <LogOut size={18} />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="portal-content-wrapper">
+        {/* Mobile Header */}
+        <header className="mobile-header">
+          <button
+            className="menu-btn"
+            onClick={() => setIsMobileMenuOpen(true)}
+          >
+            <Menu size={24} />
+          </button>
+          <span className="mobile-title">Shiv Furniture</span>
+          <div className="mobile-user">
+            <User size={20} />
+          </div>
+        </header>
+
+        <main className="portal-main">
+          <Outlet />
+        </main>
+      </div>
 
       <style>{`
+        :root {
+          --portal-bg: #f8fafc;
+          --sidebar-bg: #0f172a;
+          --sidebar-text: #e2e8f0;
+          --sidebar-hover: #1e293b;
+          --accent-color: #f97316;
+          --accent-hover: #ea580c;
+        }
+
         .portal-layout {
-          min-height: 100vh;
-          background: #f8fafc;
-        }
-
-        .portal-nav {
-          background: white;
-          border-bottom: 1px solid #e2e8f0;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-          position: sticky;
-          top: 0;
-          z-index: 50;
-        }
-
-        .nav-content {
-          max-width: 1400px;
-          margin: 0 auto;
-          padding: 0 1.5rem;
-          height: 64px;
           display: flex;
-          align-items: center;
-          justify-content: space-between;
+          min-height: 100vh;
+          background: var(--portal-bg);
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
-        .nav-brand {
+        /* Sidebar Styles */
+        .portal-sidebar {
+          width: 280px;
+          background: var(--sidebar-bg);
+          color: var(--sidebar-text);
+          display: flex;
+          flex-direction: column;
+          position: fixed;
+          top: 0;
+          bottom: 0;
+          left: 0;
+          z-index: 50;
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-header {
+          padding: 1.5rem;
           display: flex;
           align-items: center;
           gap: 0.75rem;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
-        .brand-icon {
-          width: 36px;
-          height: 36px;
-          background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        .brand-logo {
+          width: 32px;
+          height: 32px;
+          background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          color: white;
+        }
+
+        .sidebar-header h2 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: white;
+          margin: 0;
+          letter-spacing: -0.01em;
+        }
+
+        .mobile-close-btn {
+          display: none;
+          background: none;
+          border: none;
+          color: rgba(255,255,255,0.6);
+          cursor: pointer;
+          margin-left: auto;
+        }
+
+        .user-profile-summary {
+          padding: 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          background: rgba(255,255,255,0.03);
+          margin: 1rem;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .user-avatar {
+          width: 40px;
+          height: 40px;
+          background: var(--sidebar-hover);
           border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
+          font-weight: 600;
           color: white;
-          font-weight: 700;
-          font-size: 1.125rem;
+          border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .nav-brand h1 {
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: #0f172a;
-          margin: 0;
-          letter-spacing: -0.025em;
-        }
-
-        .nav-user {
+        .user-details {
           display: flex;
-          align-items: center;
-          gap: 1rem;
+          flex-direction: column;
+          gap: 0.125rem;
         }
 
-        .user-info {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 0.75rem;
-          background: #f8fafc;
-          border-radius: 8px;
-        }
-
-        .user-avatar {
-          width: 28px;
-          height: 28px;
-          background: #e2e8f0;
-          border-radius: 6px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #64748b;
-        }
-
-        .user-info span {
-          font-size: 0.875rem;
+        .user-name {
+          font-size: 0.9375rem;
           font-weight: 500;
-          color: #334155;
+          color: white;
+        }
+
+        .user-role {
+          font-size: 0.75rem;
+          color: rgba(255,255,255,0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .sidebar-nav {
+          flex: 1;
+          padding: 0 1rem;
+          overflow-y: auto;
+        }
+
+        .sidebar-nav ul {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.875rem 1rem;
+          border-radius: 10px;
+          color: rgba(255,255,255,0.7);
+          text-decoration: none;
+          transition: all 0.2s;
+          font-size: 0.9375rem;
+          font-weight: 500;
+          border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+          background: var(--sidebar-hover);
+          color: white;
+        }
+
+        .nav-item.active {
+          background: linear-gradient(90deg, rgba(249, 115, 22, 0.1) 0%, transparent 100%);
+          color: var(--accent-color);
+          border-color: rgba(249, 115, 22, 0.2);
+        }
+
+        .sidebar-footer {
+          padding: 1.5rem;
+          border-top: 1px solid rgba(255,255,255,0.05);
         }
 
         .logout-btn {
-          display: inline-flex;
+          width: 100%;
+          display: flex;
           align-items: center;
+          justify-content: center;
           gap: 0.5rem;
-          padding: 0.625rem 1rem;
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: white;
-          background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-          border: none;
-          border-radius: 8px;
+          padding: 0.875rem;
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 10px;
           cursor: pointer;
+          font-weight: 500;
+          font-size: 0.875rem;
           transition: all 0.2s;
-          box-shadow: 0 2px 6px rgba(249, 115, 22, 0.25);
         }
 
         .logout-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
+          background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Main Content */
+        .portal-content-wrapper {
+          flex: 1;
+          margin-left: 280px;
+          display: flex;
+          flex-direction: column;
+          min-width: 0; /* Prevent overflow */
+        }
+
+        .mobile-header {
+          display: none;
+          align-items: center;
+          justify-content: space-between;
+          padding: 1rem;
+          background: white;
+          border-bottom: 1px solid #e2e8f0;
+          position: sticky;
+          top: 0;
+          z-index: 40;
+        }
+
+        .menu-btn {
+          background: none;
+          border: none;
+          color: #334155;
+          cursor: pointer;
+          padding: 0.5rem;
+        }
+
+        .mobile-title {
+          font-weight: 600;
+          color: #0f172a;
         }
 
         .portal-main {
+          padding: 2.5rem;
           max-width: 1400px;
           margin: 0 auto;
-          padding: 2rem 1.5rem;
+          width: 100%;
+          animation: fadeIn 0.4s ease-out;
         }
 
-        @media (max-width: 768px) {
-          .nav-content {
-            padding: 0 1rem;
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+          .portal-sidebar {
+            transform: translateX(-100%);
           }
 
-          .user-info {
-            display: none;
+          .portal-sidebar.open {
+            transform: translateX(0);
           }
 
-          .logout-btn span {
-            display: none;
+          .mobile-close-btn {
+            display: block;
           }
 
-          .logout-btn {
-            padding: 0.625rem;
+          .portal-content-wrapper {
+            margin-left: 0;
+          }
+
+          .mobile-header {
+            display: flex;
           }
 
           .portal-main {

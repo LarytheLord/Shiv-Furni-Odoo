@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { AuthRequest } from '../middleware/authMiddleware';
 import prisma from '../config/database';
 import { autoAnalyticalService } from '../services/autoAnalyticalService';
 import { ApiError } from '../middleware/errorHandler';
@@ -33,7 +34,7 @@ export const salesOrderController = {
      * Get all sales orders
      * GET /api/sales-orders
      */
-    async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+    async getAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
         try {
             const { page = 1, limit = 20, search, status, customerId } = req.query;
             const skip = (Number(page) - 1) * Number(limit);
@@ -51,7 +52,12 @@ export const salesOrderController = {
                 where.status = String(status);
             }
 
-            if (customerId) {
+            if (req.user?.role === 'PORTAL_USER') {
+                if (!req.user.contactId) {
+                    throw new ApiError('Portal user has no linked contact', 400);
+                }
+                where.customerId = req.user.contactId;
+            } else if (customerId) {
                 where.customerId = String(customerId);
             }
 
@@ -92,7 +98,7 @@ export const salesOrderController = {
      * Get sales order by ID
      * GET /api/sales-orders/:id
      */
-    async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+    async getById(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
         try {
             const { id } = req.params;
 
@@ -114,6 +120,11 @@ export const salesOrderController = {
 
             if (!order) {
                 throw new ApiError('Sales order not found', 404);
+            }
+
+            // Guardrail: Portal User check
+            if (req.user?.role === 'PORTAL_USER' && order.customerId !== req.user.contactId) {
+                throw new ApiError('Unauthorized access to this resource', 403);
             }
 
             res.status(200).json({

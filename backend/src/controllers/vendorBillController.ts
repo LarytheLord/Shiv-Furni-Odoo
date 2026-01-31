@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { AuthRequest } from '../middleware/authMiddleware';
 import prisma from '../config/database';
 import { autoAnalyticalService } from '../services/autoAnalyticalService';
 import { alertService } from '../services/alertService';
@@ -37,7 +38,7 @@ export const vendorBillController = {
    * Get all vendor bills
    * GET /api/vendor-bills
    */
-  async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { page = 1, limit = 20, search, status, vendorId } = req.query;
       const skip = (Number(page) - 1) * Number(limit);
@@ -57,7 +58,12 @@ export const vendorBillController = {
         where.status = String(status);
       }
 
-      if (vendorId) {
+      if (req.user?.role === 'PORTAL_USER') {
+        if (!req.user.contactId) {
+          throw new ApiError('Portal user has no linked contact', 400);
+        }
+        where.vendorId = req.user.contactId;
+      } else if (vendorId) {
         where.vendorId = String(vendorId);
       }
 
@@ -102,7 +108,7 @@ export const vendorBillController = {
    * GET /api/vendor-bills/:id
    */
   async getById(
-    req: Request,
+    req: AuthRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
@@ -128,6 +134,14 @@ export const vendorBillController = {
 
       if (!bill) {
         throw new ApiError('Vendor bill not found', 404);
+      }
+
+      // Guardrail: Portal User check
+      if (
+        req.user?.role === 'PORTAL_USER' &&
+        bill.vendorId !== req.user.contactId
+      ) {
+        throw new ApiError('Unauthorized access to this resource', 403);
       }
 
       res.status(200).json({
