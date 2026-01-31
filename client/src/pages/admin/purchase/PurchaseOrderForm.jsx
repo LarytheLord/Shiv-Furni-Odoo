@@ -469,10 +469,16 @@ export default function PurchaseOrderForm() {
     if (isNew) return;
     setSaving(true);
     try {
-      await api.patch(`/purchase-orders/${id}/status`, { status: newStatus });
+      if (newStatus === 'CONFIRMED') {
+        // Use dedicated confirm endpoint
+        await api.post(`/purchase-orders/${id}/confirm`);
+      } else {
+        // Use general update endpoint for other status changes
+        await api.patch(`/purchase-orders/${id}`, { status: newStatus });
+      }
       setFormData({ ...formData, status: newStatus });
     } catch (err) {
-      alert('Failed to update status');
+      alert(err.response?.data?.message || 'Failed to update status');
       console.error(err);
     } finally {
       setSaving(false);
@@ -632,7 +638,7 @@ export default function PurchaseOrderForm() {
           {formData.status === 'CONFIRMED' && (
             <button
               className='btn-action btn-bill'
-              onClick={() => navigate('/admin/bills/new')}
+              onClick={() => navigate(`/admin/bills/new?poId=${id}`)}
             >
               <FileText size={14} /> Create Bill
             </button>
