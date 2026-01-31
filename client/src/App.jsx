@@ -1,6 +1,8 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import AdminLayout from './layouts/AdminLayout';
 import PortalLayout from './layouts/PortalLayout';
 import PrivateRoute from './components/PrivateRoute';
@@ -36,6 +38,8 @@ function App() {
     <AuthProvider>
       <Routes>
         <Route path='/login' element={<Login />} />
+        <Route path='/signup' element={<Signup />} />
+        <Route path='/forgot-password' element={<ForgotPassword />} />
 
         {/* Admin Routes */}
         <Route
