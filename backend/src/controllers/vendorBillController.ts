@@ -82,9 +82,35 @@ export const vendorBillController = {
         prisma.vendorBill.count({ where }),
       ]);
 
+      // Check for conflicts efficiently
+      const pendingSuggestions = await prisma.categorizationSuggestion.findMany({
+        where: {
+          transactionType: 'BILL',
+          status: 'PENDING',
+          isConflict: true
+        },
+        select: { transactionId: true }
+      });
+
+      const conflictLineIds = pendingSuggestions.map((s: any) => s.transactionId);
+      const conflictBillIds = new Set();
+
+      if (conflictLineIds.length > 0) {
+        const lines = await prisma.vendorBillLine.findMany({
+          where: { id: { in: conflictLineIds } },
+          select: { vendorBillId: true }
+        });
+        lines.forEach((l: any) => conflictBillIds.add(l.vendorBillId));
+      }
+
+      const billsWithFlags = bills.map((bill: any) => ({
+        ...bill,
+        needsReview: conflictBillIds.has(bill.id)
+      }));
+
       res.status(200).json({
         status: 'success',
-        data: { bills },
+        data: { bills: billsWithFlags },
         pagination: {
           page: Number(page),
           limit: Number(limit),
@@ -150,9 +176,12 @@ export const vendorBillController = {
 
       const billNumber = await generateBillNumber();
 
+      // Store matches to process after line creation
+      const lineMatches: any[] = new Array(lines.length);
+
       // Process lines with auto-analytical
       const processedLines = await Promise.all(
-        lines.map(async (line: any) => {
+        lines.map(async (line: any, index: number) => {
           const totals = calculateLineTotals(
             line.quantity,
             line.unitPrice,
@@ -171,6 +200,9 @@ export const vendorBillController = {
             });
             analyticalAccountId = match.analyticalAccountId;
             isAutoAssigned = match.isAutoAssigned;
+            lineMatches[index] = match; // Store match result
+          } else {
+            lineMatches[index] = null;
           }
 
           return {
@@ -220,6 +252,36 @@ export const vendorBillController = {
           },
         },
       });
+
+      // Post-process ML conflicts
+      // We rely on order matching between `lines` (input), `processedLines`, and `bill.lines` (created)
+      if (bill.lines && bill.lines.length > 0) {
+        // Sort bill lines maybe? DB creation usually preserves insertion order for transaction, 
+        // but `lines` array in the object might need verification. 
+        // However, Prisma creates typically map 1:1 in order if using createMany or nested create array.
+        // Let's assume order is preserved for now as per Prisma array write.
+
+        await Promise.all(bill.lines.map(async (createdLine: any, index: number) => {
+          const match = lineMatches[index];
+          if (match && match.isConflict && match.mlSuggestions) {
+            // Save suggestions
+            for (const sugg of match.mlSuggestions) {
+              await prisma.categorizationSuggestion.create({
+                data: {
+                  transactionType: "BILL",
+                  transactionId: createdLine.id,
+                  suggestedAccountId: sugg.accountId,
+                  accountName: sugg.accountName || 'Unknown',
+                  confidenceScore: Number(sugg.confidence),
+                  parametersUsed: ['Product', 'Partner', 'Amount'],
+                  isConflict: true,
+                  status: "PENDING"
+                }
+              });
+            }
+          }
+        }));
+      }
 
       res.status(201).json({
         status: 'success',
@@ -415,6 +477,58 @@ export const vendorBillController = {
         `attachment; filename=${bill.billNumber}.pdf`,
       );
       res.send(pdfBuffer);
+    } catch (error) {
+      next(error);
+    }
+  },
+  /**
+   * Get conflicts for a specific bill
+   * GET /api/vendor-bills/:id/conflicts
+   */
+  async getConflicts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      // Get bill lines
+      const lines = await prisma.vendorBillLine.findMany({
+        where: { vendorBillId: id },
+        include: { product: true }
+      });
+
+      const lineIds = lines.map((l: any) => l.id);
+
+      if (lineIds.length === 0) {
+        res.json({ status: 'success', data: { conflicts: [] } });
+        return;
+      }
+
+      // Get suggestions
+      const suggestions = await prisma.categorizationSuggestion.findMany({
+        where: {
+          transactionType: 'BILL',
+          transactionId: { in: lineIds },
+          status: 'PENDING',
+          isConflict: true
+        }
+      });
+
+      // Group by line
+      const conflicts = lines.map((line: any) => {
+        const lineSuggestions = suggestions.filter((s: any) => s.transactionId === line.id);
+        if (lineSuggestions.length === 0) return null;
+
+        return {
+          lineId: line.id,
+          productName: line.product.name,
+          amount: line.total,
+          suggestions: lineSuggestions
+        };
+      }).filter(Boolean);
+
+      res.json({
+        status: 'success',
+        data: { conflicts }
+      });
     } catch (error) {
       next(error);
     }

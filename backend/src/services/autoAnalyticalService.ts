@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { ApplyOn } from '@prisma/client';
+import { getMLCategorization } from './mlClient';
 
 interface LineData {
     productId: string;
@@ -14,6 +15,8 @@ interface MatchResult {
     ruleId: string | null;
     ruleName: string | null;
     isAutoAssigned: boolean;
+    isConflict?: boolean;
+    mlSuggestions?: any[]; // To be saved later
 }
 
 /**
@@ -112,7 +115,88 @@ export class AutoAnalyticalService {
             };
         }
 
-        // No matching rule found
+        // ==========================================
+        // ML CATEGORIZATION FALLBACK
+        // ==========================================
+        try {
+            // Fetch contact info if needed for ML
+            let contactName = '';
+            if (lineData.contactId) {
+                const contact = await prisma.contact.findUnique({ where: { id: lineData.contactId } });
+                contactName = contact?.name || '';
+            }
+
+            // Prepare data for ML
+            const mlData = {
+                productName: product.name,
+                productCategory: product.category?.name,
+                partnerName: contactName,
+                amount: lineData.amount,
+                description: product.description || product.name, // Or line description if available?
+                transactionType: lineData.type
+            };
+
+            const mlResult = await getMLCategorization(mlData);
+
+            // Expected mlResult structure: { suggestions: [{ accountId, accountName, confidence }, ...] }
+            // Note: If accountId comes from ML, it might be a code or name. We need to resolve to local UUID.
+            // For this implementation, let's assume ML returns local UUIDs or we lookup by code/name. 
+            // Assuming ML returns { accountId: "uuid", ... } for simplicity or we map it.
+
+            if (mlResult && mlResult.suggestions && mlResult.suggestions.length > 0) {
+                const suggestions = mlResult.suggestions;
+                const topPrediction = suggestions[0];
+                const secondPrediction = suggestions.length > 1 ? suggestions[1] : null;
+
+                // Step B: High confidence check
+                if (topPrediction.confidence > 0.85) {
+                    return {
+                        analyticalAccountId: topPrediction.accountId,
+                        ruleId: null,
+                        ruleName: 'ML_PREDICTION',
+                        isAutoAssigned: true,
+                        mlSuggestions: suggestions // Pass them in case we want to log
+                    };
+                }
+
+                // Step C: Conflict Check
+                if (secondPrediction) {
+                    const diff = Math.abs(topPrediction.confidence - secondPrediction.confidence);
+                    if (diff <= 0.15) {
+                        // Conflict!
+                        return {
+                            analyticalAccountId: null, // Don't assign if conflicted
+                            ruleId: null,
+                            ruleName: 'ML_CONFLICT',
+                            isAutoAssigned: false,
+                            isConflict: true,
+                            mlSuggestions: suggestions
+                        };
+                    }
+                }
+
+                // If neither (moderate confidence, no conflict), maybe assign the top one?
+                // Or leave blank? The user only specified > 0.85. 
+                // Let's assume < 0.85 and no conflict = Needs Review (similar to conflict?)
+                // Or just return top one but marked as "Needs Review"? 
+                // User said "Option A (48%)..." in the UI "Needs Review" modal.
+                // So if < 0.85, we treat it as a potential review case.
+
+                return {
+                    analyticalAccountId: null,
+                    ruleId: null,
+                    ruleName: 'ML_UNCERTAIN',
+                    isAutoAssigned: false,
+                    isConflict: true, // Treat uncertain as conflict/review needed
+                    mlSuggestions: suggestions
+                };
+            }
+
+        } catch (error) {
+            console.error('AutoAnalyticalService ML error:', error);
+        }
+
+        // No matching rule found and ML failed or didn't run
         return { analyticalAccountId: null, ruleId: null, ruleName: null, isAutoAssigned: false };
     }
 

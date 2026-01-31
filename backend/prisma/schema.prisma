@@ -676,3 +676,23 @@ model InvoicePayment {
 
   @@map("invoice_payments")
 }
+
+// ==========================================
+// ML CATEGORIZATION SUGGESTIONS
+// ==========================================
+
+model CategorizationSuggestion {
+  id                  String   @id @default(uuid())
+  transactionType     String   // e.g., "INVOICE" or "BILL"
+  transactionId       String
+  suggestedAccountId  String
+  accountName         String
+  confidenceScore     Float    // 0.0 to 1.0
+  parametersUsed      String[] // List of fields the ML used (Product, Partner, etc.)
+  isConflict          Boolean  @default(false)
+  status              String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt           DateTime @default(now())
+
+  @@map("categorization_suggestions")
+}
+

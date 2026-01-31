@@ -13,6 +13,7 @@ router.use(authenticate, adminOnly);
 router.get('/', vendorBillController.getAll);
 router.get('/:id', param('id').isUUID(), validateRequest, vendorBillController.getById);
 router.get('/:id/pdf', param('id').isUUID(), validateRequest, vendorBillController.generatePdf);
+router.get('/:id/conflicts', param('id').isUUID(), validateRequest, vendorBillController.getConflicts);
 router.get('/:billId/payments', param('billId').isUUID(), validateRequest, billPaymentController.getByBill);
 
 router.post('/',
