@@ -7,7 +7,7 @@ export default function Budgets() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ analytical_account_id: '', amount: 0, start_date: '', end_date: '' });
+  const [formData, setFormData] = useState({ name: '', dateFrom: '', dateTo: '', lines: [] });
 
   useEffect(() => {
     fetchData();
@@ -19,8 +19,8 @@ export default function Budgets() {
         api.get('/budgets'),
         api.get('/analytical-accounts')
       ]);
-      setBudgets(budgetsRes.data);
-      setAccounts(accountsRes.data);
+      setBudgets(budgetsRes.data.budgets || []);
+      setAccounts(accountsRes.data.accounts || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -33,7 +33,7 @@ export default function Budgets() {
     try {
       await api.post('/budgets', formData);
       setShowModal(false);
-      setFormData({ analytical_account_id: '', amount: 0, start_date: '', end_date: '' });
+      setFormData({ name: '', dateFrom: '', dateTo: '', lines: [] });
       fetchData();
     } catch (err) {
       alert('Failed to create budget');
@@ -59,8 +59,8 @@ export default function Budgets() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analytical Account</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
             </tr>
@@ -68,10 +68,18 @@ export default function Budgets() {
           <tbody className="bg-white divide-y divide-gray-200">
             {budgets.map((budget) => (
               <tr key={budget.id}>
-                <td className="px-6 py-4 whitespace-nowrap">{budget.analytical_account_name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">${budget.amount}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{new Date(budget.start_date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{new Date(budget.end_date).toLocaleDateString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{budget.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                    ${budget.status === 'DRAFT' ? 'bg-gray-100 text-gray-800' : ''}
+                    ${budget.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' : ''}
+                    ${budget.status === 'VALIDATED' ? 'bg-green-100 text-green-800' : ''}
+                    ${budget.status === 'DONE' ? 'bg-purple-100 text-purple-800' : ''}
+                    ${budget.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : ''}
+                  `}>{budget.status}</span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">{new Date(budget.dateFrom).toLocaleDateString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{new Date(budget.dateTo).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
@@ -84,27 +92,13 @@ export default function Budgets() {
             <h3 className="text-lg font-bold mb-4">Create Budget</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Analytical Account</label>
-                <select
-                  required
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  value={formData.analytical_account_id}
-                  onChange={(e) => setFormData({ ...formData, analytical_account_id: e.target.value })}
-                >
-                  <option value="">Select Account</option>
-                  {accounts.map(acc => (
-                      <option key={acc.id} value={acc.id}>{acc.name} ({acc.code})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Amount</label>
+                <label className="block text-sm font-medium text-gray-700">Budget Name</label>
                 <input
-                  type="number"
+                  type="text"
                   required
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -114,8 +108,8 @@ export default function Budgets() {
                     type="date"
                     required
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    value={formData.dateFrom}
+                    onChange={(e) => setFormData({ ...formData, dateFrom: e.target.value })}
                   />
                 </div>
                 <div>
@@ -124,11 +118,12 @@ export default function Budgets() {
                     type="date"
                     required
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    value={formData.dateTo}
+                    onChange={(e) => setFormData({ ...formData, dateTo: e.target.value })}
                   />
                 </div>
               </div>
+              <p className="text-sm text-gray-500">Note: Budget lines can be added after creating the budget.</p>
               <div className="flex justify-end space-x-3 mt-4">
                 <button
                   type="button"

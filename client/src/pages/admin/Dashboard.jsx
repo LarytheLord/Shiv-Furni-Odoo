@@ -226,8 +226,12 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const { data } = await api.get('/stats/dashboard');
-        setStats(data);
+        const { data } = await api.get('/dashboard/stats');
+        setStats({
+          total_po: data.stats?.purchaseOrders || 0,
+          total_so: data.stats?.salesOrders || 0,
+          active_budgets: data.stats?.activeBudgets || 0
+        });
       } catch (err) {
         console.error('Failed to fetch stats', err);
       } finally {
