@@ -14,7 +14,10 @@ A comprehensive PERN stack (PostgreSQL, Express.js, React.js, Node.js) Budget Ac
 - ✅ Docker setup for PostgreSQL
 
 ### In Progress
-- 🔄 Frontend development
+- 🔄 Documentation
+
+### Note
+- 🚧 Frontend development is being handled by the frontend team.
 
 ## 🐳 Quick Start with Docker
 
