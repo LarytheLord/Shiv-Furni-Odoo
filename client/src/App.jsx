@@ -12,26 +12,31 @@ import Contacts from './pages/admin/Contacts';
 
 import Products from './pages/admin/Products';
 
-import AnalyticalAccounts from './pages/admin/AnalyticalAccounts';
+import BudgetList from './pages/admin/budgets/BudgetList';
+import BudgetForm from './pages/admin/budgets/BudgetForm';
 
-import Budgets from './pages/admin/Budgets';
+import PurchaseOrderList from './pages/admin/purchase/PurchaseOrderList';
+import PurchaseOrderForm from './pages/admin/purchase/PurchaseOrderForm';
+import VendorBillList from './pages/admin/purchase/VendorBillList';
+import VendorBillForm from './pages/admin/purchase/VendorBillForm';
 
-import Purchases from './pages/admin/Purchases';
-
-import Bills from './pages/admin/Bills';
-
-import Sales from './pages/admin/Sales';
-
-import Invoices from './pages/admin/Invoices';
+import SalesOrderList from './pages/admin/sales/SalesOrderList';
+import SalesOrderForm from './pages/admin/sales/SalesOrderForm';
+import InvoiceList from './pages/admin/sales/InvoiceList';
+import InvoiceForm from './pages/admin/sales/InvoiceForm';
 
 import Payments from './pages/admin/Payments';
 
-import Analytics from './pages/admin/Analytics';
+import AnalyticAccountList from './pages/admin/analytics/AnalyticAccountList';
+import AnalyticAccountForm from './pages/admin/analytics/AnalyticAccountForm';
+import AutoModelList from './pages/admin/analytics/AutoModelList';
+import AutoModelForm from './pages/admin/analytics/AutoModelForm';
+
 import Users from './pages/admin/Users';
 
 // Placeholder Pages
 const Placeholder = ({ title }) => (
-  <h2 className='text-2xl font-bold p-4'>{title}</h2>
+  <h2 className='text-2xl font-bold p-4 text-slate-700'>{title}</h2>
 );
 
 function App() {
@@ -54,14 +59,32 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path='contacts' element={<Contacts />} />
           <Route path='products' element={<Products />} />
-          <Route path='analytical-accounts' element={<AnalyticalAccounts />} />
-          <Route path='budgets' element={<Budgets />} />
-          <Route path='purchases' element={<Purchases />} />
-          <Route path='bills' element={<Bills />} />
-          <Route path='sales' element={<Sales />} />
-          <Route path='invoices' element={<Invoices />} />
+
+          {/* Budget Module */}
+          <Route path='budgets' element={<BudgetList />} />
+          <Route path='budgets/:id' element={<BudgetForm />} />
+
+          {/* Purchase Module */}
+          <Route path='purchase-orders' element={<PurchaseOrderList />} />
+          <Route path='purchase-orders/:id' element={<PurchaseOrderForm />} />
+          <Route path='bills' element={<VendorBillList />} />
+          <Route path='bills/:id' element={<VendorBillForm />} />
           <Route path='payments' element={<Payments />} />
-          <Route path='analytics' element={<Analytics />} />
+
+          {/* Sales Module */}
+          <Route path='sales-orders' element={<SalesOrderList />} />
+          <Route path='sales-orders/:id' element={<SalesOrderForm />} />
+          <Route path='invoices' element={<InvoiceList />} />
+          <Route path='invoices/:id' element={<InvoiceForm />} />
+          <Route path='receipts' element={<Placeholder title="Receipts" />} />
+
+          {/* Analytics Module */}
+          <Route path='analytics' element={<AnalyticAccountList />} />
+          <Route path='analytics/:id' element={<AnalyticAccountForm />} />
+
+          <Route path='analytical-models' element={<AutoModelList />} />
+          <Route path='analytical-models/:id' element={<AutoModelForm />} />
+
           <Route path='users' element={<Users />} />
         </Route>
 

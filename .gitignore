@@ -38,3 +38,7 @@ coverage/
 .cache/
 temp/
 tmp/
+
+# Blobs
+images/
+*.pdf
