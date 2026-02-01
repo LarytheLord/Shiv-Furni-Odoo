@@ -30,7 +30,6 @@ const navGroups = [
     items: [
       { path: '/admin/purchase-orders', icon: Truck, label: 'Purchase Order' },
       { path: '/admin/bills', icon: Receipt, label: 'Purchase Bill' },
-      { path: '/admin/payments', icon: CreditCard, label: 'Payment' },
     ]
   },
   {
@@ -38,7 +37,6 @@ const navGroups = [
     items: [
       { path: '/admin/sales-orders', icon: ShoppingCart, label: 'Sale Order' },
       { path: '/admin/invoices', icon: FileText, label: 'Sale Invoice' },
-      { path: '/admin/receipts', icon: Receipt, label: 'Receipt' },
     ]
   }
 ];
