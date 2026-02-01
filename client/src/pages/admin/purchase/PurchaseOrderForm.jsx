@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import api from '../../../api/axios';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import api from "../../../api/axios";
 import {
   ArrowLeft,
   Home,
@@ -13,13 +13,13 @@ import {
   X,
   FileText,
   AlertTriangle,
-} from 'lucide-react';
+} from "lucide-react";
 
 const initialLine = {
-  productId: '',
-  productName: '',
-  analyticalAccountId: '',
-  analyticalAccountName: '',
+  productId: "",
+  productName: "",
+  analyticalAccountId: "",
+  analyticalAccountName: "",
   quantity: 1,
   unitPrice: 0,
   total: 0,
@@ -28,19 +28,20 @@ const initialLine = {
 export default function PurchaseOrderForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isNew = id === 'new';
+  const isNew = id === "new";
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    poNumber: '',
-    vendorId: '',
-    vendorName: '',
-    orderDate: new Date().toISOString().split('T')[0],
-    reference: '',
-    status: 'DRAFT',
-    notes: '',
+    poNumber: "",
+    vendorId: "",
+    vendorName: "",
+    orderDate: new Date().toISOString().split("T")[0],
+    reference: "",
+    status: "DRAFT",
+    notes: "",
     lines: [{ ...initialLine, id: Date.now() }],
+    hasBills: false,
   });
 
   // Dropdown data
@@ -70,8 +71,8 @@ export default function PurchaseOrderForm() {
     const handleClickOutside = (event) => {
       if (
         containerRef.current &&
-        !event.target.closest('.select-wrapper') &&
-        !event.target.closest('.cell-select')
+        !event.target.closest(".select-wrapper") &&
+        !event.target.closest(".cell-select")
       ) {
         setShowVendorDropdown(false);
         setActiveProductDropdown(null);
@@ -79,9 +80,9 @@ export default function PurchaseOrderForm() {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -89,9 +90,9 @@ export default function PurchaseOrderForm() {
   const fetchDropdownData = useCallback(async () => {
     try {
       const [vendorsRes, productsRes, analyticsRes] = await Promise.all([
-        api.get('/contacts', { params: { type: 'VENDOR', limit: 100 } }),
-        api.get('/products', { params: { limit: 100 } }),
-        api.get('/analytical-accounts', { params: { limit: 100 } }),
+        api.get("/contacts", { params: { type: "VENDOR", limit: 100 } }),
+        api.get("/products", { params: { limit: 100 } }),
+        api.get("/analytical-accounts", { params: { limit: 100 } }),
       ]);
 
       const vendorData =
@@ -105,7 +106,7 @@ export default function PurchaseOrderForm() {
       setProducts(productData);
       setAnalyticalAccounts(analyticsData);
     } catch (err) {
-      console.error('Failed to fetch dropdown data:', err);
+      console.error("Failed to fetch dropdown data:", err);
     }
   }, []);
 
@@ -113,16 +114,16 @@ export default function PurchaseOrderForm() {
   const fetchNextReference = useCallback(async () => {
     if (!isNew) return;
     try {
-      const { data: response } = await api.get('/purchase-orders', {
+      const { data: response } = await api.get("/purchase-orders", {
         params: { limit: 1 },
       });
       const total = response.pagination?.total || 0;
       const nextSeq = total + 1;
       const year = String(new Date().getFullYear()).slice(-2);
-      const refNumber = `REQ-${year}-${String(nextSeq).padStart(4, '0')}`;
+      const refNumber = `REQ-${year}-${String(nextSeq).padStart(4, "0")}`;
       setFormData((prev) => ({ ...prev, reference: refNumber }));
     } catch (err) {
-      console.error('Failed to generate reference number:', err);
+      console.error("Failed to generate reference number:", err);
       const year = String(new Date().getFullYear()).slice(-2);
       setFormData((prev) => ({ ...prev, reference: `REQ-${year}-0001` }));
     }
@@ -131,8 +132,8 @@ export default function PurchaseOrderForm() {
   // Fetch active budget for the selected date
   const fetchActiveBudget = useCallback(async (date) => {
     try {
-      const { data: response } = await api.get('/budgets', {
-        params: { status: 'CONFIRMED' },
+      const { data: response } = await api.get("/budgets", {
+        params: { status: "CONFIRMED" },
       });
       const budgets = response.data?.budgets || response.budgets || [];
 
@@ -152,7 +153,7 @@ export default function PurchaseOrderForm() {
         setActiveBudget(null);
       }
     } catch (err) {
-      console.error('Failed to fetch budget:', err);
+      console.error("Failed to fetch budget:", err);
       setActiveBudget(null);
     }
   }, []);
@@ -186,7 +187,7 @@ export default function PurchaseOrderForm() {
       // Check against budget lines
       for (const [accountId, data] of expensesByAccount) {
         const budgetLine = budget.budgetLines.find(
-          (bl) => bl.analyticalAccountId === accountId && bl.type === 'EXPENSE',
+          (bl) => bl.analyticalAccountId === accountId && bl.type === "EXPENSE",
         );
 
         if (budgetLine) {
@@ -202,7 +203,7 @@ export default function PurchaseOrderForm() {
           const remaining = planned - spent;
 
           if (data.amount > remaining) {
-            const accountName = budgetLine.analyticalAccount?.name || 'Unknown';
+            const accountName = budgetLine.analyticalAccount?.name || "Unknown";
             data.indices.forEach((idx) => {
               warnings.push({
                 lineIndex: idx,
@@ -245,25 +246,26 @@ export default function PurchaseOrderForm() {
         setFormData({
           poNumber: order.poNumber,
           vendorId: order.vendorId,
-          vendorName: order.vendor?.name || '',
-          orderDate: new Date(order.orderDate).toISOString().split('T')[0],
-          reference: order.notes || '',
+          vendorName: order.vendor?.name || "",
+          orderDate: new Date(order.orderDate).toISOString().split("T")[0],
+          reference: order.notes || "",
           status: order.status,
-          notes: order.notes || '',
+          notes: order.notes || "",
           lines: order.lines?.map((line) => ({
             id: line.id,
             productId: line.productId,
-            productName: line.product?.name || '',
-            analyticalAccountId: line.analyticalAccountId || '',
-            analyticalAccountName: line.analyticalAccount?.name || '',
+            productName: line.product?.name || "",
+            analyticalAccountId: line.analyticalAccountId || "",
+            analyticalAccountName: line.analyticalAccount?.name || "",
             quantity: Number(line.quantity),
             unitPrice: Number(line.unitPrice),
             total: Number(line.total),
           })) || [{ ...initialLine, id: Date.now() }],
+          hasBills: order.vendorBills && order.vendorBills.length > 0,
         });
       }
     } catch (err) {
-      console.error('Failed to fetch order:', err);
+      console.error("Failed to fetch order:", err);
     } finally {
       setLoading(false);
     }
@@ -316,7 +318,7 @@ export default function PurchaseOrderForm() {
     const newLines = [...formData.lines];
 
     // For quantity: enforce integer, minimum 1
-    if (field === 'quantity') {
+    if (field === "quantity") {
       let qty = parseInt(value, 10);
       if (isNaN(qty) || qty < 1) qty = 1;
       newLines[index] = { ...newLines[index], quantity: qty };
@@ -380,16 +382,16 @@ export default function PurchaseOrderForm() {
     const errors = [];
 
     if (!formData.vendorId) {
-      errors.push('Please select a vendor');
+      errors.push("Please select a vendor");
     }
 
     if (!formData.orderDate) {
-      errors.push('Please select a PO date');
+      errors.push("Please select a PO date");
     }
 
     const validLines = formData.lines.filter((l) => l.productId);
     if (validLines.length === 0) {
-      errors.push('Please add at least one product line');
+      errors.push("Please add at least one product line");
     }
 
     // Validate each line
@@ -417,7 +419,7 @@ export default function PurchaseOrderForm() {
   const handleSave = async () => {
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
-      alert(validationErrors.join('\n'));
+      alert(validationErrors.join("\n"));
       return;
     }
 
@@ -438,25 +440,25 @@ export default function PurchaseOrderForm() {
       };
 
       if (isNew) {
-        await api.post('/purchase-orders', payload);
-        navigate('/admin/purchase-orders');
+        await api.post("/purchase-orders", payload);
+        navigate("/admin/purchase-orders");
       } else {
         await api.patch(`/purchase-orders/${id}`, payload);
-        navigate('/admin/purchase-orders');
+        navigate("/admin/purchase-orders");
       }
     } catch (err) {
       const errorData = err.response?.data;
       if (
-        errorData?.errorCode === 'NO_BUDGET_FOUND' ||
-        errorData?.errorCode === 'BUDGET_EXCEEDED' ||
-        errorData?.errorCode === 'NO_BUDGET_LINE'
+        errorData?.errorCode === "NO_BUDGET_FOUND" ||
+        errorData?.errorCode === "BUDGET_EXCEEDED" ||
+        errorData?.errorCode === "NO_BUDGET_LINE"
       ) {
         setBudgetError({
           type: errorData.errorCode,
           message: errorData.message,
         });
       } else {
-        alert(errorData?.message || 'Failed to save order');
+        alert(errorData?.message || "Failed to save order");
       }
       console.error(err);
     } finally {
@@ -469,7 +471,7 @@ export default function PurchaseOrderForm() {
     if (isNew) return;
     setSaving(true);
     try {
-      if (newStatus === 'CONFIRMED') {
+      if (newStatus === "CONFIRMED") {
         // Use dedicated confirm endpoint
         await api.post(`/purchase-orders/${id}/confirm`);
       } else {
@@ -478,7 +480,7 @@ export default function PurchaseOrderForm() {
       }
       setFormData({ ...formData, status: newStatus });
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update status');
+      alert(err.response?.data?.message || "Failed to update status");
       console.error(err);
     } finally {
       setSaving(false);
@@ -487,7 +489,7 @@ export default function PurchaseOrderForm() {
 
   // Format currency
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
+    return new Intl.NumberFormat("en-IN", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -495,30 +497,66 @@ export default function PurchaseOrderForm() {
 
   if (loading) {
     return (
-      <div className='loading-container'>
-        <Loader2 size={32} className='spin' />
+      <div className="loading-container">
+        <Loader2 size={32} className="spin" />
       </div>
     );
   }
 
+  // Handle Create Bill
+  const handleCreateBill = async () => {
+    try {
+      // Default to 30 days from now or today
+      const defaultDate = new Date();
+      defaultDate.setDate(defaultDate.getDate() + 30);
+      const defaultDateStr = defaultDate.toISOString().split("T")[0];
+
+      const dueDate = window.prompt(
+        "Enter Bill Due Date (YYYY-MM-DD):",
+        defaultDateStr,
+      );
+      if (!dueDate) return; // User cancelled
+
+      setSaving(true);
+      const response = await api.post(`/purchase-orders/${id}/create-bill`, {
+        dueDate,
+      });
+
+      const { bill } = response.data;
+      if (bill && bill.id) {
+        navigate(`/admin/bills/${bill.id}`);
+      } else {
+        console.error("Bill ID not found in response", response);
+        alert(
+          "Bill created but could not redirect. Please check Vendor Bills list.",
+        );
+      }
+    } catch (err) {
+      console.error("Failed to create bill:", err);
+      alert(err.response?.data?.message || "Failed to create bill");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className='po-container' ref={containerRef}>
+    <div className="po-container" ref={containerRef}>
       {/* Header */}
-      <div className='po-header'>
+      <div className="po-header">
         <button
-          className='btn-new'
-          onClick={() => navigate('/admin/purchase-orders/new')}
+          className="btn-new"
+          onClick={() => navigate("/admin/purchase-orders/new")}
         >
           New
         </button>
-        <h1 className='po-title'>Purchase Order</h1>
-        <div className='header-nav'>
-          <button className='btn-nav' onClick={() => navigate('/admin')}>
+        <h1 className="po-title">Purchase Order</h1>
+        <div className="header-nav">
+          <button className="btn-nav" onClick={() => navigate("/admin")}>
             <Home size={16} /> Home
           </button>
           <button
-            className='btn-nav'
-            onClick={() => navigate('/admin/purchase-orders')}
+            className="btn-nav"
+            onClick={() => navigate("/admin/purchase-orders")}
           >
             <ArrowLeft size={16} /> Back
           </button>
@@ -526,21 +564,21 @@ export default function PurchaseOrderForm() {
       </div>
 
       {/* Order Info Card */}
-      <div className='info-card'>
-        <div className='info-grid'>
-          <div className='form-group'>
+      <div className="info-card">
+        <div className="info-grid">
+          <div className="form-group">
             <label>PO No.</label>
             <input
-              type='text'
-              value={formData.poNumber || 'P (Auto)'}
+              type="text"
+              value={formData.poNumber || "P (Auto)"}
               readOnly
-              className='input-readonly'
+              className="input-readonly"
             />
           </div>
-          <div className='form-group'>
+          <div className="form-group">
             <label>PO Date</label>
             <input
-              type='date'
+              type="date"
               value={formData.orderDate}
               onChange={(e) =>
                 setFormData({ ...formData, orderDate: e.target.value })
@@ -549,30 +587,30 @@ export default function PurchaseOrderForm() {
           </div>
         </div>
 
-        <div className='info-grid'>
-          <div className='form-group'>
+        <div className="info-grid">
+          <div className="form-group">
             <label>Vendor Name</label>
-            <div className='select-wrapper'>
+            <div className="select-wrapper">
               <div
-                className='select-trigger'
+                className="select-trigger"
                 onClick={() => setShowVendorDropdown(!showVendorDropdown)}
               >
                 <span
                   className={
-                    formData.vendorName ? 'selected-value' : 'placeholder'
+                    formData.vendorName ? "selected-value" : "placeholder"
                   }
                 >
-                  {formData.vendorName || 'Select vendor...'}
+                  {formData.vendorName || "Select vendor..."}
                 </span>
                 <ChevronDown size={16} />
               </div>
               {showVendorDropdown && (
-                <div className='select-dropdown'>
-                  <div className='dropdown-list'>
+                <div className="select-dropdown">
+                  <div className="dropdown-list">
                     {vendors.map((vendor) => (
                       <div
                         key={vendor.id}
-                        className='dropdown-option'
+                        className="dropdown-option"
                         onClick={() => {
                           setFormData({
                             ...formData,
@@ -586,7 +624,7 @@ export default function PurchaseOrderForm() {
                       </div>
                     ))}
                     {vendors.length === 0 && (
-                      <div className='dropdown-empty'>No vendors found</div>
+                      <div className="dropdown-empty">No vendors found</div>
                     )}
                   </div>
                 </div>
@@ -595,73 +633,68 @@ export default function PurchaseOrderForm() {
           </div>
         </div>
 
-        <div className='info-grid'>
-          <div className='form-group'>
+        <div className="info-grid">
+          <div className="form-group">
             <label>Reference No.</label>
             <input
-              type='text'
+              type="text"
               value={formData.reference}
               readOnly
-              className='input-readonly'
+              className="input-readonly"
             />
           </div>
         </div>
       </div>
 
       {/* Action Bar */}
-      <div className='action-bar'>
-        <div className='action-left'>
-          {formData.status === 'DRAFT' && (
+      <div className="action-bar">
+        <div className="action-left">
+          {formData.status === "DRAFT" && (
             <button
-              className='btn-action btn-confirm'
-              onClick={() => updateStatus('CONFIRMED')}
+              className="btn-action btn-confirm"
+              onClick={() => updateStatus("CONFIRMED")}
               disabled={saving}
             >
               Confirm
             </button>
           )}
-          <button className='btn-action' onClick={() => window.print()}>
+          <button className="btn-action" onClick={() => window.print()}>
             <Printer size={14} /> Print
           </button>
-          <button className='btn-action'>
+          <button className="btn-action">
             <Send size={14} /> Send
           </button>
-          {formData.status !== 'CANCELLED' && (
+          {formData.status !== "CANCELLED" && !formData.hasBills && (
             <button
-              className='btn-action btn-cancel-action'
-              onClick={() => updateStatus('CANCELLED')}
+              className="btn-action btn-cancel-action"
+              onClick={() => updateStatus("CANCELLED")}
               disabled={saving}
             >
               <X size={14} /> Cancel
             </button>
           )}
-          {formData.status === 'CONFIRMED' && (
+          {formData.status === "CONFIRMED" && (
             <button
-              className='btn-action btn-bill'
-              onClick={() => navigate(`/admin/bills/new?poId=${id}`)}
+              className="btn-action btn-bill"
+              onClick={handleCreateBill}
+              disabled={saving}
             >
               <FileText size={14} /> Create Bill
             </button>
           )}
-          <button
-            className='btn-action btn-budget'
-            onClick={() => navigate('/admin/budgets')}
-          >
-            Budget
-          </button>
         </div>
 
-        <div className='status-pills'>
-          {['DRAFT', 'CONFIRMED', 'CANCELLED'].map((status) => (
+        <div className="status-pills">
+          {["DRAFT", "CONFIRMED", "CANCELLED"].map((status) => (
             <span
               key={status}
-              className={`status-pill ${formData.status === status ? 'active' : ''}`}
+              className={`status-pill ${formData.status === status ? "active" : ""}`}
             >
-              {status === 'DRAFT'
-                ? 'Draft'
-                : status === 'CONFIRMED'
-                  ? 'Confirm'
-                  : 'Cancelled'}
+              {status === "DRAFT"
+                ? "Draft"
+                : status === "CONFIRMED"
+                  ? "Confirm"
+                  : "Cancelled"}
             </span>
           ))}
         </div>
@@ -669,11 +702,11 @@ export default function PurchaseOrderForm() {
 
       {/* Budget Warning Banner */}
       {isBudgetExceeded && budgetWarnings.length > 0 && (
-        <div className='budget-warning-banner'>
-          <div className='warning-icon'>
+        <div className="budget-warning-banner">
+          <div className="warning-icon">
             <AlertTriangle size={20} />
           </div>
-          <div className='warning-content'>
+          <div className="warning-content">
             <strong>Exceeds Approved Budget</strong>
             <p>
               The entered amount is higher than the remaining budget amount for
@@ -682,7 +715,7 @@ export default function PurchaseOrderForm() {
             </p>
             {activeBudget && (
               <button
-                className='btn-view-budget'
+                className="btn-view-budget"
                 onClick={() => navigate(`/admin/budgets/${activeBudget.id}`)}
               >
                 View Budget: {activeBudget.name}
@@ -693,17 +726,17 @@ export default function PurchaseOrderForm() {
       )}
 
       {/* Order Lines */}
-      <div className='lines-card'>
-        <table className='lines-table'>
+      <div className="lines-card">
+        <table className="lines-table">
           <thead>
             <tr>
-              <th style={{ width: '60px' }}>Sr. No.</th>
+              <th style={{ width: "60px" }}>Sr. No.</th>
               <th>Product</th>
               <th>Budget Analytics</th>
-              <th style={{ width: '100px' }}>Qty</th>
-              <th style={{ width: '130px' }}>Unit Price</th>
-              <th style={{ width: '140px' }}>Total</th>
-              <th style={{ width: '50px' }}></th>
+              <th style={{ width: "100px" }}>Qty</th>
+              <th style={{ width: "130px" }}>Unit Price</th>
+              <th style={{ width: "140px" }}>Total</th>
+              <th style={{ width: "50px" }}></th>
             </tr>
           </thead>
           <tbody>
@@ -712,15 +745,15 @@ export default function PurchaseOrderForm() {
                 key={line.id}
                 className={
                   budgetWarnings.some((w) => w.lineIndex === index)
-                    ? 'line-over-budget'
-                    : ''
+                    ? "line-over-budget"
+                    : ""
                 }
               >
-                <td className='cell-center'>{index + 1}</td>
+                <td className="cell-center">{index + 1}</td>
                 <td>
-                  <div className='cell-select'>
+                  <div className="cell-select">
                     <div
-                      className='select-trigger'
+                      className="select-trigger"
                       onClick={() =>
                         setActiveProductDropdown(
                           activeProductDropdown === index ? null : index,
@@ -729,20 +762,20 @@ export default function PurchaseOrderForm() {
                     >
                       <span
                         className={
-                          line.productName ? 'selected-value' : 'placeholder'
+                          line.productName ? "selected-value" : "placeholder"
                         }
                       >
-                        {line.productName || 'Select product...'}
+                        {line.productName || "Select product..."}
                       </span>
                       <ChevronDown size={14} />
                     </div>
                     {activeProductDropdown === index && (
-                      <div className='select-dropdown'>
-                        <div className='dropdown-list'>
+                      <div className="select-dropdown">
+                        <div className="dropdown-list">
                           {products.map((product) => (
                             <div
                               key={product.id}
-                              className='dropdown-option'
+                              className="dropdown-option"
                               onClick={() => selectProduct(index, product)}
                             >
                               {product.name}
@@ -754,9 +787,9 @@ export default function PurchaseOrderForm() {
                   </div>
                 </td>
                 <td>
-                  <div className='cell-select'>
+                  <div className="cell-select">
                     <div
-                      className='select-trigger'
+                      className="select-trigger"
                       onClick={() =>
                         setActiveAnalyticsDropdown(
                           activeAnalyticsDropdown === index ? null : index,
@@ -766,23 +799,23 @@ export default function PurchaseOrderForm() {
                       <span
                         className={
                           line.analyticalAccountName
-                            ? 'analytics-value'
-                            : 'placeholder'
+                            ? "analytics-value"
+                            : "placeholder"
                         }
                       >
-                        {line.analyticalAccountName || 'Select...'}
+                        {line.analyticalAccountName || "Select..."}
                       </span>
                       <ChevronDown size={14} />
                     </div>
                     {activeAnalyticsDropdown === index && (
-                      <div className='select-dropdown'>
-                        <div className='dropdown-list'>
+                      <div className="select-dropdown">
+                        <div className="dropdown-list">
                           <div
-                            className='dropdown-option'
+                            className="dropdown-option"
                             onClick={() =>
                               selectAnalyticalAccount(index, {
-                                id: '',
-                                name: '',
+                                id: "",
+                                name: "",
                               })
                             }
                           >
@@ -791,7 +824,7 @@ export default function PurchaseOrderForm() {
                           {analyticalAccounts.map((account) => (
                             <div
                               key={account.id}
-                              className='dropdown-option'
+                              className="dropdown-option"
                               onClick={() =>
                                 selectAnalyticalAccount(index, account)
                               }
@@ -806,17 +839,17 @@ export default function PurchaseOrderForm() {
                 </td>
                 <td>
                   <input
-                    type='number'
-                    min='1'
-                    step='1'
-                    className='line-input cell-center'
+                    type="number"
+                    min="1"
+                    step="1"
+                    className="line-input cell-center"
                     value={line.quantity}
                     onChange={(e) =>
-                      updateLine(index, 'quantity', e.target.value)
+                      updateLine(index, "quantity", e.target.value)
                     }
                     onKeyDown={(e) => {
                       // Prevent decimal point and minus
-                      if (e.key === '.' || e.key === '-' || e.key === 'e') {
+                      if (e.key === "." || e.key === "-" || e.key === "e") {
                         e.preventDefault();
                       }
                     }}
@@ -824,7 +857,7 @@ export default function PurchaseOrderForm() {
                       // Ensure valid value on blur
                       const val = parseInt(e.target.value, 10);
                       if (isNaN(val) || val < 1) {
-                        updateLine(index, 'quantity', '1');
+                        updateLine(index, "quantity", "1");
                       }
                     }}
                   />
@@ -832,15 +865,15 @@ export default function PurchaseOrderForm() {
                 <td>
                   {/* Unit Price is READ-ONLY - auto-filled from product */}
                   <input
-                    type='number'
-                    className='line-input cell-right input-readonly'
+                    type="number"
+                    className="line-input cell-right input-readonly"
                     value={line.unitPrice}
                     readOnly
-                    title='Unit price is auto-filled from product master'
+                    title="Unit price is auto-filled from product master"
                   />
                 </td>
-                <td className='total-cell'>
-                  <span className='total-value'>
+                <td className="total-cell">
+                  <span className="total-value">
                     {formatCurrency(
                       calculateLineTotal(line.quantity, line.unitPrice),
                     )}
@@ -849,7 +882,7 @@ export default function PurchaseOrderForm() {
                 <td>
                   {formData.lines.length > 1 && (
                     <button
-                      className='btn-remove'
+                      className="btn-remove"
                       onClick={() => removeLine(index)}
                     >
                       <Trash2 size={14} />
@@ -861,74 +894,74 @@ export default function PurchaseOrderForm() {
           </tbody>
         </table>
 
-        <div className='lines-footer'>
-          <button className='btn-add-line' onClick={addLine}>
+        <div className="lines-footer">
+          <button className="btn-add-line" onClick={addLine}>
             <Plus size={16} /> Add Line
           </button>
         </div>
 
-        <div className='total-row'>
-          <span className='total-label'>Total</span>
-          <span className='grand-total'>
+        <div className="total-row">
+          <span className="total-label">Total</span>
+          <span className="grand-total">
             {formatCurrency(calculateTotal())}/-
           </span>
         </div>
       </div>
 
       {/* Save Footer */}
-      <div className='save-footer'>
+      <div className="save-footer">
         {isBudgetExceeded && (
-          <span className='save-warning-text'>
+          <span className="save-warning-text">
             <AlertTriangle size={16} /> Cannot save: Budget exceeded
           </span>
         )}
         <button
-          className='btn-primary'
+          className="btn-primary"
           onClick={handleSave}
           disabled={saving || isBudgetExceeded}
-          title={isBudgetExceeded ? 'Cannot save while budget is exceeded' : ''}
+          title={isBudgetExceeded ? "Cannot save while budget is exceeded" : ""}
         >
-          {saving ? <Loader2 size={18} className='spin' /> : <Plus size={18} />}
+          {saving ? <Loader2 size={18} className="spin" /> : <Plus size={18} />}
           <span>
-            {saving ? 'Saving...' : isNew ? 'Create Order' : 'Save Changes'}
+            {saving ? "Saving..." : isNew ? "Create Order" : "Save Changes"}
           </span>
         </button>
       </div>
 
       {/* Budget Error Modal */}
       {budgetError && (
-        <div className='budget-error-overlay'>
-          <div className='budget-error-modal'>
+        <div className="budget-error-overlay">
+          <div className="budget-error-modal">
             <div
-              className={`budget-error-icon ${budgetError.type === 'BUDGET_EXCEEDED' ? 'exceeded' : ''}`}
+              className={`budget-error-icon ${budgetError.type === "BUDGET_EXCEEDED" ? "exceeded" : ""}`}
             >
               <AlertTriangle size={24} />
             </div>
             <h3>
-              {budgetError.type === 'BUDGET_EXCEEDED'
-                ? 'Budget Limit Exceeded'
-                : budgetError.type === 'NO_BUDGET_LINE'
-                  ? 'Missing Budget Allocation'
-                  : 'No Budget Available'}
+              {budgetError.type === "BUDGET_EXCEEDED"
+                ? "Budget Limit Exceeded"
+                : budgetError.type === "NO_BUDGET_LINE"
+                  ? "Missing Budget Allocation"
+                  : "No Budget Available"}
             </h3>
-            <p className='budget-error-message'>{budgetError.message}</p>
-            <div className='budget-error-actions'>
+            <p className="budget-error-message">{budgetError.message}</p>
+            <div className="budget-error-actions">
               <button
-                className='btn-secondary'
+                className="btn-secondary"
                 onClick={() => setBudgetError(null)}
               >
-                {budgetError.type === 'BUDGET_EXCEEDED' ||
-                budgetError.type === 'NO_BUDGET_LINE'
-                  ? 'Modify Order'
-                  : 'Cancel'}
+                {budgetError.type === "BUDGET_EXCEEDED" ||
+                budgetError.type === "NO_BUDGET_LINE"
+                  ? "Modify Order"
+                  : "Cancel"}
               </button>
               <button
-                className='btn-budget-create'
-                onClick={() => navigate('/admin/budgets')}
+                className="btn-budget-create"
+                onClick={() => navigate("/admin/budgets")}
               >
-                {budgetError.type === 'NO_BUDGET_FOUND'
-                  ? 'Create Budget'
-                  : 'View Budgets'}
+                {budgetError.type === "NO_BUDGET_FOUND"
+                  ? "Create Budget"
+                  : "View Budgets"}
               </button>
             </div>
           </div>
