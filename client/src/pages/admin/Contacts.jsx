@@ -127,7 +127,7 @@ export default function Contacts() {
     try {
       // 1. Create Contact
       const { data: contactResponse } = await api.post('/contacts', formData);
-      const newContact = contactResponse.data.contact;
+      const newContact = contactResponse.contact;
 
       // 2. If checked, Create User (Invite)
       if (createPortalUser) {
