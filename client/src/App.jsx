@@ -6,6 +6,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import AdminLayout from './layouts/AdminLayout';
 import PortalLayout from './layouts/PortalLayout';
 import PrivateRoute from './components/PrivateRoute';
+import NotFound from './pages/NotFound';
 import Dashboard from './pages/admin/Dashboard';
 
 import Contacts from './pages/admin/Contacts';
@@ -127,6 +128,7 @@ function App() {
         </Route>
 
         <Route path='/' element={<Login />} />
+        <Route path='*' element={<NotFound />} />
       </Routes>
     </AuthProvider>
   );

@@ -218,7 +218,7 @@ export const purchaseOrderController = {
    * GET /api/purchase-orders/:id
    */
   async getById(
-    req: Request,
+    req: AuthRequest,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
