@@ -15,8 +15,8 @@ router.get('/:id', param('id').isUUID(), validateRequest, userController.getById
 router.post('/',
     [
         body('email').isEmail().normalizeEmail(),
-        body('loginId').isLength({ min: 6, max: 12 }).matches(/^[a-zA-Z0-9]+$/).withMessage('Login ID must be 6-12 alphanumeric characters'),
-        body('password').isLength({ min: 8 }),
+        body('loginId').optional().isLength({ min: 3, max: 50 }).trim(),
+        body('password').optional().isLength({ min: 6 }), // Optional for invite
         body('name').notEmpty().trim(),
         body('role').optional().isIn(['ADMIN', 'PORTAL_USER'])
     ],

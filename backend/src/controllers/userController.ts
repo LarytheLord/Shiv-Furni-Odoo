@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/database';
 import { ApiError } from '../middleware/errorHandler';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { emailService } from '../services/emailService';
 
 export const userController = {
     /**
@@ -103,18 +105,19 @@ export const userController = {
     },
 
     /**
-     * Create user
+     * Create user (Invite Flow)
      * POST /api/users
      */
     async create(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
-            const { email, loginId, password, name, role, contactId } = req.body;
+            const { email, loginId, name, role, contactId } = req.body;
+            // Removed password from required inputs
 
             const existingUser = await prisma.user.findFirst({
                 where: {
                     OR: [
                         { email },
-                        { loginId }
+                        ...(loginId ? [{ loginId }] : [])
                     ]
                 }
             });
@@ -126,16 +129,20 @@ export const userController = {
                 throw new ApiError('Login ID already taken', 400);
             }
 
-            const hashedPassword = await bcrypt.hash(password, 12);
+            // Generate Invitation Token
+            const token = crypto.randomBytes(32).toString('hex');
+            const expires = new Date();
+            expires.setHours(expires.getHours() + 24); // 24 hour expiry
 
             const user = await prisma.user.create({
                 data: {
                     email,
                     loginId,
-                    password: hashedPassword,
                     name,
                     role: role || 'PORTAL_USER',
-                    contactId
+                    contactId,
+                    resetPasswordToken: token,
+                    resetPasswordExpires: expires
                 },
                 select: {
                     id: true,
@@ -149,9 +156,18 @@ export const userController = {
                 }
             });
 
+            // Send Invitation Email
+            try {
+                await emailService.sendInvitation(email, token);
+            } catch (emailError) {
+                console.error('Failed to send invitation email:', emailError);
+                // Don't fail the request, but maybe warn? 
+                // For now, we assume admin can re-invite if needed.
+            }
+
             res.status(201).json({
                 status: 'success',
-                message: 'User created successfully',
+                message: 'User invited successfully. Check email for details.',
                 data: { user }
             });
         } catch (error) {
@@ -270,6 +286,48 @@ export const userController = {
                 status: 'success',
                 message: `User ${updated.isActive ? 'activated' : 'deactivated'} successfully`,
                 data: { user: updated }
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * Reset Password
+     * POST /api/auth/reset-password
+     */
+    async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const { token, password } = req.body;
+
+            const user = await prisma.user.findFirst({
+                where: {
+                    resetPasswordToken: token,
+                    resetPasswordExpires: {
+                        gt: new Date()
+                    }
+                }
+            });
+
+            if (!user) {
+                throw new ApiError('Password reset token is invalid or has expired', 400);
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 12);
+
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    password: hashedPassword,
+                    resetPasswordToken: null,
+                    resetPasswordExpires: null,
+                    isActive: true // Activate user if it was pending
+                }
+            });
+
+            res.status(200).json({
+                status: 'success',
+                message: 'Password has been reset successfully'
             });
         } catch (error) {
             next(error);

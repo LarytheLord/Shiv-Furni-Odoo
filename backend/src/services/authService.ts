@@ -159,12 +159,16 @@ export class AuthService {
     }
 
     // Check password
-    const isValidPassword = await this.comparePassword(
+    if (!user.password) {
+      throw new ApiError('Invalid credentials', 401);
+    }
+
+    const isPasswordValid = await bcrypt.compare(
       data.password,
       user.password,
     );
 
-    if (!isValidPassword) {
+    if (!isPasswordValid) {
       throw new ApiError("Invalid email or password", 401);
     }
 
@@ -242,12 +246,16 @@ export class AuthService {
       throw new ApiError("User not found", 404);
     }
 
-    const isValidPassword = await this.comparePassword(
+    if (!user.password) {
+      throw new ApiError('User has no password set', 400);
+    }
+
+    const isPasswordValid = await bcrypt.compare(
       currentPassword,
       user.password,
     );
 
-    if (!isValidPassword) {
+    if (!isPasswordValid) {
       throw new ApiError("Current password is incorrect", 400);
     }
 

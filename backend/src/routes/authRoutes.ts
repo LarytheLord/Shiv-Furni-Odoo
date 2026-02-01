@@ -3,8 +3,19 @@ import { authController } from '../controllers/authController';
 import { authenticate } from '../middleware/authMiddleware';
 import { body } from 'express-validator';
 import { validateRequest } from '../middleware/validateRequest';
+import { userController } from '../controllers/userController';
 
 const router = Router();
+
+// Reset Password (Invite Flow & Recovery)
+router.post('/reset-password',
+    [
+        body('token').notEmpty(),
+        body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    ],
+    validateRequest,
+    userController.resetPassword
+);
 
 // Register
 router.post('/register',

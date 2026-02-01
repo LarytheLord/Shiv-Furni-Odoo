@@ -30,6 +30,7 @@ export default function Contacts() {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
+  const [createPortalUser, setCreatePortalUser] = useState(false); // New state
   const [availableTags, setAvailableTags] = useState(defaultTags);
   const [newTagInput, setNewTagInput] = useState('');
   const [imagePreview, setImagePreview] = useState(null);
@@ -65,8 +66,8 @@ export default function Contacts() {
       setData(mappedData);
       setTotalRecords(
         response.pagination?.total ||
-          response.data?.pagination?.total ||
-          mappedData.length,
+        response.data?.pagination?.total ||
+        mappedData.length,
       );
     } catch (err) {
       console.error('Failed to fetch contacts:', err);
@@ -108,20 +109,53 @@ export default function Contacts() {
   const handleCreate = () => {
     setFormData(initialFormData);
     setImagePreview(null);
+    setCreatePortalUser(false); // Reset checkbox
     setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+
+    // Validate that email is present if creating a user
+    if (createPortalUser && !formData.email) {
+      alert('Email is required when creating a portal user.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
-      await api.post('/contacts', formData);
+      // 1. Create Contact
+      const { data: contactResponse } = await api.post('/contacts', formData);
+      const newContact = contactResponse.data.contact;
+
+      // 2. If checked, Create User (Invite)
+      if (createPortalUser) {
+        try {
+          await api.post('/users', {
+            email: newContact.email,
+            name: newContact.name,
+            role: 'PORTAL_USER',
+            contactId: newContact.id,
+            loginId: newContact.email // Use email as loginId by default
+          });
+          alert('Contact created and Portal User invitation sent!');
+        } catch (userErr) {
+          console.error('Failed to invite user:', userErr);
+          alert(`Contact created, but failed to invite user: ${userErr.response?.data?.message || userErr.message}`);
+        }
+      } else {
+        // alert('Contact created successfully');
+      }
+
       setShowModal(false);
       setFormData(initialFormData);
       setImagePreview(null);
+      setCreatePortalUser(false);
       fetchContacts();
     } catch (err) {
-      alert('Failed to create contact');
+      console.error(err);
+      alert('Failed to create contact: ' + (err.response?.data?.message || err.message));
     } finally {
       setSubmitting(false);
     }
@@ -303,6 +337,19 @@ export default function Contacts() {
                           }
                         />
                       </div>
+                    </div>
+
+                    <div className="form-group checkbox-group" style={{ marginTop: '1rem' }}>
+                      <label style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={createPortalUser}
+                          onChange={(e) => setCreatePortalUser(e.target.checked)}
+                          style={{ width: 'auto' }}
+                        />
+                        <span style={{ fontWeight: '600', color: 'var(--accent-600)' }}>Create Portal User & Send Invite</span>
+                      </label>
+                      {createPortalUser && <p style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '1.5rem', marginTop: '0.25rem' }}>An invitation will be sent to the email address.</p>}
                     </div>
                   </div>
 
