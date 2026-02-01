@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../api/axios';
 import ListView from '../../components/ui/ListView';
-import { X, Plus, Upload, Loader2 } from 'lucide-react';
+import { X, Plus, Upload, Loader2, User, Truck } from 'lucide-react';
 
 const initialFormData = {
   name: '',
@@ -14,6 +14,7 @@ const initialFormData = {
   pincode: '',
   image: '',
   tags: [],
+  type: 'CUSTOMER',
 };
 
 const defaultTags = ['B2B', 'MSME', 'Retailer', 'Local'];
@@ -66,8 +67,8 @@ export default function Contacts() {
       setData(mappedData);
       setTotalRecords(
         response.pagination?.total ||
-        response.data?.pagination?.total ||
-        mappedData.length,
+          response.data?.pagination?.total ||
+          mappedData.length,
       );
     } catch (err) {
       console.error('Failed to fetch contacts:', err);
@@ -137,12 +138,14 @@ export default function Contacts() {
             name: newContact.name,
             role: 'PORTAL_USER',
             contactId: newContact.id,
-            loginId: newContact.email // Use email as loginId by default
+            loginId: newContact.email, // Use email as loginId by default
           });
           alert('Contact created and Portal User invitation sent!');
         } catch (userErr) {
           console.error('Failed to invite user:', userErr);
-          alert(`Contact created, but failed to invite user: ${userErr.response?.data?.message || userErr.message}`);
+          alert(
+            `Contact created, but failed to invite user: ${userErr.response?.data?.message || userErr.message}`,
+          );
         }
       } else {
         // alert('Contact created successfully');
@@ -155,7 +158,10 @@ export default function Contacts() {
       fetchContacts();
     } catch (err) {
       console.error(err);
-      alert('Failed to create contact: ' + (err.response?.data?.message || err.message));
+      alert(
+        'Failed to create contact: ' +
+          (err.response?.data?.message || err.message),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -236,7 +242,7 @@ export default function Contacts() {
       {showModal && (
         <div className='modal-overlay' onClick={() => setShowModal(false)}>
           <div
-            className='modal modal-large'
+            className='modal modal-large modal-enter'
             onClick={(e) => e.stopPropagation()}
           >
             <div className='modal-header'>
@@ -339,17 +345,47 @@ export default function Contacts() {
                       </div>
                     </div>
 
-                    <div className="form-group checkbox-group" style={{ marginTop: '1rem' }}>
-                      <label style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <div
+                      className='form-group checkbox-group'
+                      style={{ marginTop: '1rem' }}
+                    >
+                      <label
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          cursor: 'pointer',
+                        }}
+                      >
                         <input
-                          type="checkbox"
+                          type='checkbox'
                           checked={createPortalUser}
-                          onChange={(e) => setCreatePortalUser(e.target.checked)}
+                          onChange={(e) =>
+                            setCreatePortalUser(e.target.checked)
+                          }
                           style={{ width: 'auto' }}
                         />
-                        <span style={{ fontWeight: '600', color: 'var(--accent-600)' }}>Create Portal User & Send Invite</span>
+                        <span
+                          style={{
+                            fontWeight: '600',
+                            color: 'var(--accent-600)',
+                          }}
+                        >
+                          Create Portal User & Send Invite
+                        </span>
                       </label>
-                      {createPortalUser && <p style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '1.5rem', marginTop: '0.25rem' }}>An invitation will be sent to the email address.</p>}
+                      {createPortalUser && (
+                        <p
+                          style={{
+                            fontSize: '0.75rem',
+                            color: '#64748b',
+                            marginLeft: '1.5rem',
+                            marginTop: '0.25rem',
+                          }}
+                        >
+                          An invitation will be sent to the email address.
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -424,6 +460,32 @@ export default function Contacts() {
                         </p>
                       </div>
                     </div>
+
+                    <div className='form-group'>
+                      <label>Type</label>
+                      <div className='type-toggle'>
+                        <button
+                          type='button'
+                          className={`type-option ${(formData.type || 'CUSTOMER') === 'CUSTOMER' ? 'active' : ''}`}
+                          onClick={() =>
+                            setFormData({ ...formData, type: 'CUSTOMER' })
+                          }
+                        >
+                          <User size={16} />
+                          <span>Customer</span>
+                        </button>
+                        <button
+                          type='button'
+                          className={`type-option ${formData.type === 'VENDOR' ? 'active' : ''}`}
+                          onClick={() =>
+                            setFormData({ ...formData, type: 'VENDOR' })
+                          }
+                        >
+                          <Truck size={16} />
+                          <span>Vendor</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -472,10 +534,11 @@ export default function Contacts() {
         .form-column { display: flex; flex-direction: column; gap: 1rem; }
         .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
         .form-group label { font-size: 0.875rem; font-weight: 500; color: #374151; }
-        .form-group input { padding: 0.625rem 0.875rem; font-size: 0.875rem; border: 1px solid #d1d5db; border-radius: 6px; outline: none; transition: all 0.2s; }
-        .form-group input:focus { border-color: var(--accent-500); box-shadow: 0 0 0 3px rgba(0, 135, 139, 0.1); }
+        .form-group input, .form-group select { padding: 0.625rem 0.875rem; font-size: 0.875rem; border: 1px solid #d1d5db; border-radius: 6px; outline: none; transition: all 0.2s; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--accent-500); box-shadow: 0 0 0 3px rgba(0, 135, 139, 0.1); }
         .form-group input::placeholder { color: #9ca3af; }
-        .address-fields { display: flex; flex-direction: column; gap: 0.5rem; }
+        .address-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .address-fields input:first-child { grid-column: 1 / -1; }
         .image-upload-box { width: 100%; height: 150px; border: 2px dashed #d1d5db; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; overflow: hidden; }
         .image-upload-box:hover { border-color: var(--accent-500); background: rgba(0, 135, 139, 0.05); }
         .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; color: #9ca3af; }
@@ -492,6 +555,12 @@ export default function Contacts() {
         .btn-add-tag { padding: 0.5rem; background: var(--accent-600); border: none; border-radius: 6px; color: white; cursor: pointer; }
         .btn-add-tag:hover { background: var(--accent-700); }
         .tags-hint { font-size: 0.75rem; color: var(--accent-600); margin: 0; font-style: italic; }
+        .type-toggle { display: flex; gap: 0.5rem; }
+        .type-option { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .type-option:hover { border-color: var(--accent-400); color: var(--accent-600); background: rgba(0, 135, 139, 0.06); }
+        .type-option.active { background: rgba(0, 135, 139, 0.12); border-color: var(--accent-500); color: var(--accent-700); }
+        .modal-enter { animation: modalSlideIn 0.2s ease-out; }
+        @keyframes modalSlideIn { from { opacity: 0; transform: scale(0.98) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         .modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; }
         .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; color: white; background: var(--accent-600); border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
         .btn-primary:hover { background: var(--accent-700); }
@@ -500,7 +569,7 @@ export default function Contacts() {
         .btn-secondary:hover { background: #f9fafb; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @media (max-width: 640px) { .form-layout { grid-template-columns: 1fr; } .modal-large { max-width: 95%; } }
+        @media (max-width: 640px) { .form-layout { grid-template-columns: 1fr; } .modal-large { max-width: 95%; } .address-fields { grid-template-columns: 1fr; } .address-fields input:first-child { grid-column: 1; } }
       `}</style>
     </>
   );
