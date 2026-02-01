@@ -1,11 +1,11 @@
-import { Request, Response, NextFunction } from 'express';
-import prisma from '../config/database';
-import { budgetService } from '../services/budgetService';
-import { alertService } from '../services/alertService';
-import { pdfService } from '../services/pdfService';
-import { ApiError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/authMiddleware';
-import { BudgetStatus } from '@prisma/client';
+import { Request, Response, NextFunction } from "express";
+import prisma from "../config/database";
+import { budgetService } from "../services/budgetService";
+import { alertService } from "../services/alertService";
+import { pdfService } from "../services/pdfService";
+import { ApiError } from "../middleware/errorHandler";
+import { AuthRequest } from "../middleware/authMiddleware";
+import { BudgetStatus } from "@prisma/client";
 
 export const budgetController = {
   /**
@@ -20,7 +20,7 @@ export const budgetController = {
       const where: any = {};
 
       if (search) {
-        where.name = { contains: String(search), mode: 'insensitive' };
+        where.name = { contains: String(search), mode: "insensitive" };
       }
 
       if (status) {
@@ -40,13 +40,13 @@ export const budgetController = {
           },
           skip,
           take: Number(limit),
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         }),
         prisma.budget.count({ where }),
       ]);
 
       res.status(200).json({
-        status: 'success',
+        status: "success",
         data: { budgets },
         pagination: {
           page: Number(page),
@@ -85,21 +85,21 @@ export const budgetController = {
           },
           alerts: {
             where: { isAcknowledged: false },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { createdAt: "desc" },
             take: 10,
           },
         },
       });
 
       if (!budget) {
-        throw new ApiError('Budget not found', 404);
+        throw new ApiError("Budget not found", 404);
       }
 
       // Get metrics for each line
       const linesWithMetrics = await budgetService.getBudgetWithMetrics(id);
 
       res.status(200).json({
-        status: 'success',
+        status: "success",
         data: {
           budget,
           linesWithMetrics,
@@ -133,7 +133,7 @@ export const budgetController = {
           budgetLines: {
             create: lines.map((line: any) => ({
               analyticalAccountId: line.analyticalAccountId,
-              type: line.type || 'EXPENSE',
+              type: line.type || "EXPENSE",
               plannedAmount: line.plannedAmount,
               isMonetary: line.isMonetary || false,
               originalPlannedAmount: line.plannedAmount,
@@ -151,8 +151,8 @@ export const budgetController = {
       });
 
       res.status(201).json({
-        status: 'success',
-        message: 'Budget created successfully',
+        status: "success",
+        message: "Budget created successfully",
         data: { budget },
       });
     } catch (error) {
@@ -186,8 +186,8 @@ export const budgetController = {
       });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Budget updated successfully',
+        status: "success",
+        message: "Budget updated successfully",
         data: { budget },
       });
     } catch (error) {
@@ -206,18 +206,18 @@ export const budgetController = {
       const budget = await prisma.budget.findUnique({ where: { id } });
 
       if (!budget) {
-        throw new ApiError('Budget not found', 404);
+        throw new ApiError("Budget not found", 404);
       }
 
-      if (budget.status !== 'DRAFT') {
-        throw new ApiError('Only draft budgets can be deleted', 400);
+      if (budget.status !== "DRAFT") {
+        throw new ApiError("Only draft budgets can be deleted", 400);
       }
 
       await prisma.budget.delete({ where: { id } });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Budget deleted successfully',
+        status: "success",
+        message: "Budget deleted successfully",
       });
     } catch (error) {
       next(error);
@@ -243,7 +243,7 @@ export const budgetController = {
 
       if (existingLine) {
         throw new ApiError(
-          'Budget line for this cost center already exists',
+          "Budget line for this cost center already exists",
           400,
         );
       }
@@ -259,8 +259,8 @@ export const budgetController = {
       });
 
       res.status(201).json({
-        status: 'success',
-        message: 'Budget line added successfully',
+        status: "success",
+        message: "Budget line added successfully",
         data: { line },
       });
     } catch (error) {
@@ -298,8 +298,8 @@ export const budgetController = {
       }
 
       res.status(200).json({
-        status: 'success',
-        message: 'Budget line updated successfully',
+        status: "success",
+        message: "Budget line updated successfully",
         data: { line },
       });
     } catch (error) {
@@ -322,8 +322,8 @@ export const budgetController = {
       await prisma.budgetLine.delete({ where: { id: lineId } });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Budget line deleted successfully',
+        status: "success",
+        message: "Budget line deleted successfully",
       });
     } catch (error) {
       next(error);
@@ -344,12 +344,12 @@ export const budgetController = {
 
       const budget = await prisma.budget.update({
         where: { id },
-        data: { status: 'CONFIRMED' },
+        data: { status: "CONFIRMED" },
       });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Budget confirmed successfully',
+        status: "success",
+        message: "Budget confirmed successfully",
         data: { budget },
       });
     } catch (error) {
@@ -371,12 +371,12 @@ export const budgetController = {
 
       const budget = await prisma.budget.update({
         where: { id },
-        data: { status: 'VALIDATED' },
+        data: { status: "VALIDATED" },
       });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Budget validated successfully',
+        status: "success",
+        message: "Budget validated successfully",
         data: { budget },
       });
     } catch (error) {
@@ -410,7 +410,7 @@ export const budgetController = {
       );
 
       res.status(200).json({
-        status: 'success',
+        status: "success",
         data: {
           lines: linesWithMetrics,
           totals: {
@@ -443,12 +443,12 @@ export const budgetController = {
       const simulation = await budgetService.simulateBudget(id, adjustments);
 
       if (!simulation) {
-        throw new ApiError('Budget not found', 404);
+        throw new ApiError("Budget not found", 404);
       }
 
       res.status(200).json({
-        status: 'success',
-        data: { simulation }
+        status: "success",
+        data: { simulation },
       });
     } catch (error) {
       next(error);
@@ -459,7 +459,11 @@ export const budgetController = {
    * Compute budget achievements
    * POST /api/budgets/:id/compute
    */
-  async compute(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async compute(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { id } = req.params;
       await budgetService.computeBudgetLines(id);
@@ -467,9 +471,9 @@ export const budgetController = {
       // Return updated metrics
       const linesWithMetrics = await budgetService.getBudgetWithMetrics(id);
       res.status(200).json({
-        status: 'success',
-        message: 'Budget computed successfully',
-        data: { linesWithMetrics }
+        status: "success",
+        message: "Budget computed successfully",
+        data: { linesWithMetrics },
       });
     } catch (error) {
       next(error);
@@ -477,66 +481,48 @@ export const budgetController = {
   },
 
   /**
-   * Revise budget
+   * Revise budget (In-Place Edit Mode)
    * POST /api/budgets/:id/revise
+   * Sets the budget status back to DRAFT to allow editing
    */
-  async revise(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async revise(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { id } = req.params;
-      const userId = req.user!.id;
 
-      const originalBudget = await prisma.budget.findUnique({
+      const existingBudget = await prisma.budget.findUnique({
         where: { id },
-        include: { budgetLines: true }
       });
 
-      if (!originalBudget) throw new ApiError('Budget not found', 404);
-      // if (originalBudget.revisedBudgetId) throw new ApiError('This budget is already revised', 400);
+      if (!existingBudget) throw new ApiError("Budget not found", 404);
 
-      // Create new revision
-      const revisionNumber = originalBudget.revisionNumber + 1;
-      const newName = `${originalBudget.name} (Rev ${revisionNumber})`;
+      if (existingBudget.status === "DRAFT") {
+        throw new ApiError("Budget is already in draft mode", 400);
+      }
 
-      const newBudget = await prisma.$transaction(async (tx) => {
-        // 1. Create new budget
-        const created = await tx.budget.create({
-          data: {
-            name: newName,
-            dateFrom: originalBudget.dateFrom,
-            dateTo: originalBudget.dateTo,
-            description: originalBudget.description,
-            status: 'DRAFT',
-            createdById: userId,
-            originalBudgetId: originalBudget.id,
-            revisionNumber: revisionNumber,
-            revisionDate: new Date()
-          }
-        });
-
-        // 2. Copy lines
-        for (const line of originalBudget.budgetLines) {
-          await tx.budgetLine.create({
-            data: {
-              budgetId: created.id,
-              analyticalAccountId: line.analyticalAccountId,
-              type: line.type,
-              plannedAmount: line.plannedAmount,
-              achievedAmount: line.achievedAmount,
-              isMonetary: line.isMonetary,
-              originalPlannedAmount: line.originalPlannedAmount
-            }
-          });
-        }
-
-        return created;
+      // Increment revision number and set back to DRAFT
+      const budget = await prisma.budget.update({
+        where: { id },
+        data: {
+          status: "DRAFT",
+          revisionNumber: existingBudget.revisionNumber + 1,
+          revisionDate: new Date(),
+        },
+        include: {
+          budgetLines: {
+            include: { analyticalAccount: true },
+          },
+        },
       });
 
-      res.status(201).json({
-        status: 'success',
-        message: 'Budget revised created successfully',
-        data: { budget: newBudget }
+      res.status(200).json({
+        status: "success",
+        message: "Budget is now in revision mode. You can edit and re-confirm.",
+        data: { budget },
       });
-
     } catch (error) {
       next(error);
     }
@@ -564,7 +550,7 @@ export const budgetController = {
       });
 
       if (!budget) {
-        throw new ApiError('Budget not found', 404);
+        throw new ApiError("Budget not found", 404);
       }
 
       const linesWithMetrics = await budgetService.getBudgetWithMetrics(id);
@@ -597,9 +583,9 @@ export const budgetController = {
         },
       });
 
-      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
-        'Content-Disposition',
+        "Content-Disposition",
         `attachment; filename=budget-report-${budget.name}.pdf`,
       );
       res.send(pdfBuffer);

@@ -15,6 +15,9 @@ export const authController = {
     try {
       const { email, loginId, password, name, role, contactId } = req.body;
 
+      // Get the uploaded image path if available
+      const imagePath = req.file ? req.file.path : undefined;
+
       const result = await authService.register({
         email,
         loginId,
@@ -22,6 +25,7 @@ export const authController = {
         name,
         role,
         contactId,
+        imagePath,
       });
 
       res.status(201).json({
@@ -46,8 +50,7 @@ export const authController = {
 
       // Set custom Authentication header
       res.setHeader("Authorization", `Bearer ${result.token}`);
-      console.log(result.token)
-
+      console.log(result.token);
 
       res.status(200).json({
         status: "success",
