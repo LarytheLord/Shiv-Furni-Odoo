@@ -12,6 +12,7 @@ interface RegisterData {
   name: string;
   role?: UserRole;
   contactId?: string;
+  imagePath?: string;
 }
 
 interface LoginData {
@@ -76,8 +77,8 @@ export class AuthService {
       where: {
         OR: [
           { email: data.email },
-          ...(data.loginId ? [{ loginId: data.loginId }] : [])
-        ]
+          ...(data.loginId ? [{ loginId: data.loginId }] : []),
+        ],
       },
     });
 
@@ -98,6 +99,7 @@ export class AuthService {
         loginId: data.loginId,
         password: hashedPassword,
         name: data.name,
+        image: data.imagePath,
         role: data.role || "PORTAL_USER",
         contactId: data.contactId,
       },
@@ -105,6 +107,7 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        image: true,
         role: true,
         contactId: true,
       },
@@ -134,10 +137,7 @@ export class AuthService {
 
     const user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { email: identifier },
-          { loginId: identifier }
-        ]
+        OR: [{ email: identifier }, { loginId: identifier }],
       },
       select: {
         id: true,
@@ -160,13 +160,10 @@ export class AuthService {
 
     // Check password
     if (!user.password) {
-      throw new ApiError('Invalid credentials', 401);
+      throw new ApiError("Invalid credentials", 401);
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      data.password,
-      user.password,
-    );
+    const isPasswordValid = await bcrypt.compare(data.password, user.password);
 
     if (!isPasswordValid) {
       throw new ApiError("Invalid email or password", 401);
@@ -247,7 +244,7 @@ export class AuthService {
     }
 
     if (!user.password) {
-      throw new ApiError('User has no password set', 400);
+      throw new ApiError("User has no password set", 400);
     }
 
     const isPasswordValid = await bcrypt.compare(
