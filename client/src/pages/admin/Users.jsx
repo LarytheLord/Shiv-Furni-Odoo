@@ -43,39 +43,89 @@ export default function Users() {
     passwordsMatch: formData.password === formData.confirmPassword && formData.confirmPassword.length > 0
   };
 
-  const isPasswordValid = validations.passwordLength && validations.passwordUpper && validations.passwordLower && validations.passwordSpecial;
-  const isFormValid = formData.name.trim() && validations.loginIdLength && formData.email.trim() && isPasswordValid && validations.passwordsMatch;
+  // New validation function for the form
+  const validateForm = () => {
+    let newErrors = {};
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.loginId.trim()) newErrors.loginId = 'Login ID is required';
+    else if (!validations.loginIdLength) newErrors.loginId = 'Login ID must be 6-12 characters';
+    if (!formData.email.trim()) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
+
+    // Password validation only for creation, not for editing (invitation)
+    if (!isEditing) {
+      if (!formData.password) newErrors.password = 'Password is required';
+      else if (!validations.passwordLength) newErrors.password = 'Password must be > 8 characters';
+      else if (!validations.passwordUpper) newErrors.password = 'Password needs an uppercase letter';
+      else if (!validations.passwordLower) newErrors.password = 'Password needs a lowercase letter';
+      else if (!validations.passwordSpecial) newErrors.password = 'Password needs a special character';
+
+      if (!formData.confirmPassword) newErrors.confirmPassword = 'Confirm password is required';
+      else if (!validations.passwordsMatch) newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  /* ------------------------------------------------------------------
+   * HANDLERS: Create / Update
+   * ------------------------------------------------------------------ */
+  const handleCreate = () => {
+    setIsEditing(false);
+    setSelectedUser(null);
+    setFormData({
+      loginId: '',
+      name: '',
+      email: '',
+      role: 'PORTAL_USER', // valid default
+      password: '',
+      confirmPassword: ''
+    });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const handleEdit = (user) => {
+    setIsEditing(true);
+    setSelectedUser(user);
+    setFormData({
+      loginId: user.loginId || '',
+      name: user.name || '',
+      email: user.email || '',
+      role: user.role || 'PORTAL_USER',
+      password: '', // Passwords are not pre-filled for security
+      confirmPassword: ''
+    });
+    setErrors({});
+    setShowModal(true);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
-    if (!isFormValid) {
-      setError('Please fix the errors before submitting');
-      return;
-    }
+    if (!validateForm()) return;
 
     setSubmitting(true);
     try {
-      await api.post('/users', {
-        name: formData.name,
-        loginId: formData.loginId,
-        email: formData.email,
-        role: formData.role,
-        password: formData.password
-      });
+      if (isEditing) {
+        // Update user
+        await api.patch(`/users/${selectedUser.id}`, formData);
+        alert("User updated");
+      } else {
+        // Create (Invite) user
+        // Ensure we send NO password, so backend treats as invite
+        await api.post('/users', {
+          ...formData,
+          password: undefined,
+          confirmPassword: undefined,
+        });
+        alert('User invited successfully! Email sent.');
+      }
       setShowModal(false);
-      setFormData({
-        name: '',
-        loginId: '',
-        email: '',
-        role: 'PORTAL_USER',
-        password: '',
-        confirmPassword: ''
-      });
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create user');
+      console.error(err);
+      alert('Operation failed: ' + (err.response?.data?.message || err.message));
     } finally {
       setSubmitting(false);
     }
@@ -210,7 +260,7 @@ export default function Users() {
                 <X size={20} />
               </button>
             </div>
-            
+
             {error && (
               <div className="modal-error">
                 <AlertCircle size={16} />
