@@ -14,6 +14,7 @@ import {
  *
  * @param {string} title - Page title
  * @param {Function} onCreate - Create button handler
+ * @param {ReactNode} createButton - Optional custom create control (e.g. dropdown); when set, replaces default New button
  * @param {Function} onSearch - Search input handler
  * @param {Function} onPageChange - Pagination change handler
  * @param {Array} columns - Table columns definition { header, accessor, width, render }
@@ -23,6 +24,7 @@ import {
 export default function ListView({
   title,
   onCreate,
+  createButton,
   onSearch,
   onPageChange,
   columns = [],
@@ -69,11 +71,14 @@ export default function ListView({
             <button className='btn-erp btn-erp-secondary'>
               <Download size={14} /> Export
             </button>
-            {onCreate && (
-              <button onClick={onCreate} className='btn-erp btn-erp-primary'>
-                <Plus size={16} /> New
-              </button>
-            )}
+            {(createButton != null ? createButton : onCreate) &&
+              (createButton != null ? (
+                createButton
+              ) : (
+                <button onClick={onCreate} className='btn-erp btn-erp-primary'>
+                  <Plus size={16} /> New
+                </button>
+              ))}
           </div>
         </div>
       </div>
