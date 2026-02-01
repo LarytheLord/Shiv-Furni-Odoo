@@ -63,10 +63,10 @@ export default function AnalyticAccountList() {
       accessor: 'code',
       width: '15%',
       render: (row) => (
-        <span className="font-mono text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+        <span className='font-mono text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded'>
           {row.code}
         </span>
-      )
+      ),
     },
     {
       header: 'Name',
@@ -86,22 +86,14 @@ export default function AnalyticAccountList() {
       accessor: 'description',
       width: '40%',
       render: (row) => (
-        <span className="text-slate-500 truncate block max-w-xs" title={row.description}>
+        <span
+          className='text-slate-500 truncate block max-w-xs'
+          title={row.description}
+        >
           {row.description || '-'}
         </span>
-      )
+      ),
     },
-    {
-      header: 'Status',
-      accessor: 'isActive',
-      width: '15%',
-      render: (row) => (
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${row.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${row.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-          {row.isActive ? 'Active' : 'Archived'}
-        </span>
-      )
-    }
   ];
 
   if (loading) {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -7,6 +7,8 @@ import {
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 /**
@@ -17,6 +19,9 @@ import {
  * @param {ReactNode} createButton - Optional custom create control (e.g. dropdown); when set, replaces default New button
  * @param {Function} onSearch - Search input handler
  * @param {Function} onPageChange - Pagination change handler
+ * @param {Function} onEdit - Edit handler receiving (row)
+ * @param {Function} onDelete - Delete handler receiving (row)
+ * @param {Function} onRowClick - Row click handler receiving (row)
  * @param {Array} columns - Table columns definition { header, accessor, width, render }
  * @param {Array} data - Table data
  * @param {ReactNode} actions - Extra actions
@@ -27,12 +32,27 @@ export default function ListView({
   createButton,
   onSearch,
   onPageChange,
+  onEdit,
+  onDelete,
+  onRowClick,
   columns = [],
   data = [],
   actions,
   pagination = { page: 1, limit: 10, total: 0 },
 }) {
+  const [actionMenuOpen, setActionMenuOpen] = useState(null);
+  const menuRef = useRef(null);
   const totalPages = Math.ceil(pagination.total / pagination.limit);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setActionMenuOpen(null);
+      }
+    }
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const handlePrevPage = () => {
     if (pagination.page > 1 && onPageChange) {
@@ -45,6 +65,9 @@ export default function ListView({
       onPageChange(pagination.page + 1);
     }
   };
+
+  const hasRowActions = onEdit || onDelete;
+
   return (
     <div className='list-view-container'>
       {/* 1. List Header */}
@@ -102,8 +125,12 @@ export default function ListView({
           <tbody>
             {data.length > 0 ? (
               data.map((row, rowIndex) => (
-                <tr key={row.id || rowIndex}>
-                  <td>
+                <tr
+                  key={row.id || rowIndex}
+                  onClick={() => onRowClick && onRowClick(row)}
+                  className={onRowClick ? 'clickable-row' : ''}
+                >
+                  <td onClick={(e) => e.stopPropagation()}>
                     <input type='checkbox' />
                   </td>
                   {columns.map((col, colIndex) => (
@@ -111,10 +138,57 @@ export default function ListView({
                       {col.render ? col.render(row) : row[col.accessor] || '-'}
                     </td>
                   ))}
-                  <td>
-                    <button className='row-action-btn'>
-                      <MoreHorizontal size={16} />
-                    </button>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    {hasRowActions ? (
+                      <div
+                        className='row-actions-wrapper'
+                        ref={actionMenuOpen === row.id ? menuRef : null}
+                      >
+                        <button
+                          type='button'
+                          className='row-action-btn'
+                          onClick={() =>
+                            setActionMenuOpen(
+                              actionMenuOpen === row.id ? null : row.id,
+                            )
+                          }
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {actionMenuOpen === row.id && (
+                          <div className='row-action-dropdown'>
+                            {onEdit && (
+                              <button
+                                type='button'
+                                className='row-action-item'
+                                onClick={() => {
+                                  onEdit(row);
+                                  setActionMenuOpen(null);
+                                }}
+                              >
+                                <Pencil size={14} /> Edit
+                              </button>
+                            )}
+                            {onDelete && (
+                              <button
+                                type='button'
+                                className='row-action-item row-action-item-danger'
+                                onClick={() => {
+                                  onDelete(row);
+                                  setActionMenuOpen(null);
+                                }}
+                              >
+                                <Trash2 size={14} /> Delete
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <button type='button' className='row-action-btn' disabled>
+                        <MoreHorizontal size={16} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -204,7 +278,7 @@ export default function ListView({
         }
 
         .list-search input { border: none; outline: none; font-size: 0.9rem; width: 200px; }
-        
+
         .control-group { display: flex; gap: 0.5rem; }
 
         /* Table */
@@ -214,27 +288,62 @@ export default function ListView({
         }
 
         .erp-table { width: 100%; border-collapse: collapse; }
-        .erp-table th { 
-           position: sticky; 
-           top: 0; 
-           background: #f1f5f9; 
-           z-index: 10; 
+        .erp-table th {
+           position: sticky;
+           top: 0;
+           background: #f1f5f9;
+           z-index: 10;
            text-transform: uppercase;
            font-size: 0.75rem;
            letter-spacing: 0.05em;
         }
 
         .empty-state { text-align: center; padding: 3rem; color: #94a3b8; }
-        
-        .row-action-btn { 
-           background: transparent; 
-           border: none; 
-           padding: 4px; 
-           cursor: pointer; 
-           color: #94a3b8; 
+
+        .erp-table tbody tr.clickable-row { cursor: pointer; }
+        .erp-table tbody tr.clickable-row:hover { background: #f8fafc; }
+
+        .row-actions-wrapper { position: relative; }
+        .row-action-btn {
+           background: transparent;
+           border: none;
+           padding: 4px;
+           cursor: pointer;
+           color: #94a3b8;
            border-radius: 4px;
         }
         .row-action-btn:hover { background: #e2e8f0; color: #1e293b; }
+        .row-action-btn:disabled { cursor: default; opacity: 0.5; }
+
+        .row-action-dropdown {
+           position: absolute;
+           right: 0;
+           top: 100%;
+           margin-top: 4px;
+           min-width: 120px;
+           background: white;
+           border: 1px solid #e2e8f0;
+           border-radius: 8px;
+           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+           z-index: 100;
+           overflow: hidden;
+        }
+        .row-action-item {
+           display: flex;
+           align-items: center;
+           gap: 0.5rem;
+           width: 100%;
+           padding: 0.5rem 0.75rem;
+           border: none;
+           background: none;
+           cursor: pointer;
+           font-size: 0.875rem;
+           color: #374151;
+           text-align: left;
+        }
+        .row-action-item:hover { background: #f1f5f9; }
+        .row-action-item-danger { color: #dc2626; }
+        .row-action-item-danger:hover { background: #fef2f2; }
 
         /* Footer */
         .list-footer {
@@ -249,7 +358,7 @@ export default function ListView({
         }
 
         .pagination-controls { display: flex; align-items: center; gap: 0.5rem; }
-        
+
         .page-btn {
            background: white;
            border: 1px solid #cbd5e1;
@@ -260,7 +369,7 @@ export default function ListView({
         }
         .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .page-btn:hover:not(:disabled) { border-color: var(--accent-500); color: var(--accent-600); }
-        
+
         .current-page { font-weight: 600; padding: 0 0.5rem; }
 
         @media (max-width: 768px) {

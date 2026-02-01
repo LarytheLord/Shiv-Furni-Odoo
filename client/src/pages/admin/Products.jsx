@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/axios';
 import ListView from '../../components/ui/ListView';
-import { X, Plus, Loader2, ChevronDown } from 'lucide-react';
+import { X, Plus, Loader2, ChevronDown, Pencil } from 'lucide-react';
 
 const initialFormData = {
   name: '',
@@ -22,6 +22,7 @@ export default function Products() {
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
   const [categories, setCategories] = useState([]);
@@ -37,19 +38,20 @@ export default function Products() {
         ...(searchQuery && { search: searchQuery }),
       };
       const { data: response } = await api.get('/products');
-      console.log(response);
 
-      const mappedData = (response.products || []).map((product) => ({
+      const products = response.data?.products || response.products || [];
+      const mappedData = products.map((product) => ({
         id: product.id,
         name: product.name,
         ref: product.code || '-',
         category: product.category?.name || '-',
+        categoryId: product.category?.id,
         price: Number(product.salePrice) || 0,
         costPrice: Number(product.costPrice) || 0,
       }));
 
       setData(mappedData);
-      setTotalRecords(response.pagination?.total || mappedData.length);
+      setTotalRecords(response.pagination?.total ?? mappedData.length);
     } catch (err) {
       console.error('Failed to fetch products:', err);
     } finally {
@@ -84,31 +86,103 @@ export default function Products() {
   };
 
   const handleCreate = () => {
+    setEditingId(null);
     setFormData(initialFormData);
     setShowModal(true);
   };
+
+  const handleEdit = useCallback(async (row) => {
+    try {
+      const { data: res } = await api.get(`/products/${row.id}`);
+      const p = res.data?.product || res.product;
+      if (!p) {
+        alert('Product not found');
+        return;
+      }
+      setFormData({
+        name: p.name || '',
+        categoryId: p.category?.id || '',
+        categoryName: p.category?.name || '',
+        salePrice: String(p.salePrice ?? ''),
+        costPrice: String(p.costPrice ?? ''),
+      });
+      setEditingId(p.id);
+      setShowModal(true);
+    } catch (err) {
+      console.error(err);
+      alert(
+        'Failed to load product: ' +
+          (err.response?.data?.message || err.message),
+      );
+    }
+  }, []);
+
+  const handleDelete = useCallback(
+    async (row) => {
+      if (!window.confirm(`Are you sure you want to delete "${row.name}"?`)) {
+        return;
+      }
+      try {
+        await api.delete(`/products/${row.id}`);
+        fetchProducts();
+        fetchCategories();
+      } catch (err) {
+        console.error(err);
+        alert(
+          'Failed to delete product: ' +
+            (err.response?.data?.message || err.message),
+        );
+      }
+    },
+    [fetchProducts, fetchCategories],
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      let categoryId = formData.categoryId || undefined;
+      if (!categoryId && formData.categoryName) {
+        const { data: catRes } = await api.post('/products/categories', {
+          name: formData.categoryName.trim(),
+        });
+        const cat = catRes.data?.category || catRes.category;
+        if (cat) categoryId = cat.id;
+      }
       const payload = {
         name: formData.name,
-        categoryId: formData.categoryId || undefined,
+        categoryId: categoryId || undefined,
         categoryName:
-          !formData.categoryId && formData.categoryName
+          !categoryId && formData.categoryName
             ? formData.categoryName
             : undefined,
         salePrice: parseFloat(formData.salePrice) || 0,
         costPrice: parseFloat(formData.costPrice) || 0,
       };
-      await api.post('/products', payload);
+      if (editingId) {
+        await api.patch(`/products/${editingId}`, {
+          name: payload.name,
+          categoryId: payload.categoryId,
+          salePrice: payload.salePrice,
+          costPrice: payload.costPrice,
+        });
+      } else {
+        await api.post('/products', {
+          ...payload,
+          categoryId: payload.categoryId,
+          categoryName: payload.categoryName,
+        });
+      }
       setShowModal(false);
+      setEditingId(null);
       setFormData(initialFormData);
       fetchProducts();
       fetchCategories();
     } catch (err) {
-      alert('Failed to create product');
+      alert(
+        'Failed to save product: ' +
+          (err.response?.data?.message || err.message),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -177,6 +251,8 @@ export default function Products() {
         onCreate={handleCreate}
         onSearch={handleSearch}
         onPageChange={handlePageChange}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
       />
 
       {/* Create Product Modal */}
@@ -184,7 +260,7 @@ export default function Products() {
         <div className='modal-overlay' onClick={() => setShowModal(false)}>
           <div className='modal' onClick={(e) => e.stopPropagation()}>
             <div className='modal-header'>
-              <h2>Product Master</h2>
+              <h2>{editingId ? 'Edit Product' : 'Product Master'}</h2>
               <button className='close-btn' onClick={() => setShowModal(false)}>
                 <X size={20} />
               </button>
@@ -279,7 +355,7 @@ export default function Products() {
                         <input
                           type='number'
                           min='0'
-                          step='0.01'
+                          step='1'
                           placeholder='0.00'
                           value={formData.salePrice}
                           onChange={(e) =>
@@ -333,6 +409,11 @@ export default function Products() {
                     <>
                       <Loader2 size={18} className='spin' />
                       <span>Saving...</span>
+                    </>
+                  ) : editingId ? (
+                    <>
+                      <Pencil size={18} />
+                      <span>Update Product</span>
                     </>
                   ) : (
                     <>

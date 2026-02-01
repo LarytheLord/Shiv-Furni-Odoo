@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../api/axios';
 import ListView from '../../components/ui/ListView';
-import { X, Plus, Upload, Loader2, User, Truck } from 'lucide-react';
+import { X, Plus, Upload, Loader2, User, Truck, Pencil } from 'lucide-react';
 
 const initialFormData = {
   name: '',
@@ -29,9 +29,10 @@ export default function Contacts() {
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
-  const [createPortalUser, setCreatePortalUser] = useState(false); // New state
+  const [createPortalUser, setCreatePortalUser] = useState(false);
   const [availableTags, setAvailableTags] = useState(defaultTags);
   const [newTagInput, setNewTagInput] = useState('');
   const [imagePreview, setImagePreview] = useState(null);
@@ -60,7 +61,9 @@ export default function Contacts() {
         state: contact.state,
         pincode: contact.pincode,
         image: contact.image,
-        tags: contact.tags,
+        tags:
+          contact.tags?.map((t) => (typeof t === 'string' ? t : t.name)) || [],
+        type: contact.type || 'CUSTOMER',
         isActive: contact.isActive,
       }));
 
@@ -108,17 +111,70 @@ export default function Contacts() {
   };
 
   const handleCreate = () => {
+    setEditingId(null);
     setFormData(initialFormData);
     setImagePreview(null);
-    setCreatePortalUser(false); // Reset checkbox
+    setCreatePortalUser(false);
     setShowModal(true);
   };
+
+  const handleEdit = useCallback(async (row) => {
+    try {
+      const { data: res } = await api.get(`/contacts/${row.id}`);
+      const c = res.data?.contact || res.contact;
+      if (!c) {
+        alert('Contact not found');
+        return;
+      }
+      setFormData({
+        name: c.name || '',
+        email: c.email || '',
+        phone: c.phone || '',
+        street: c.street || '',
+        city: c.city || '',
+        state: c.state || '',
+        country: c.country || '',
+        pincode: c.pincode || '',
+        image: c.image || '',
+        tags: c.tags?.map((t) => (typeof t === 'string' ? t : t.name)) || [],
+        type: c.type || 'CUSTOMER',
+      });
+      setImagePreview(c.image || null);
+      setCreatePortalUser(false);
+      setEditingId(c.id);
+      setShowModal(true);
+    } catch (err) {
+      console.error(err);
+      alert(
+        'Failed to load contact: ' +
+          (err.response?.data?.message || err.message),
+      );
+    }
+  }, []);
+
+  const handleDelete = useCallback(
+    async (row) => {
+      if (!window.confirm(`Are you sure you want to delete "${row.name}"?`)) {
+        return;
+      }
+      try {
+        await api.delete(`/contacts/${row.id}`);
+        fetchContacts();
+      } catch (err) {
+        console.error(err);
+        alert(
+          'Failed to delete contact: ' +
+            (err.response?.data?.message || err.message),
+        );
+      }
+    },
+    [fetchContacts],
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
 
-    // Validate that email is present if creating a user
     if (createPortalUser && !formData.email) {
       alert('Email is required when creating a portal user.');
       setSubmitting(false);
@@ -126,11 +182,21 @@ export default function Contacts() {
     }
 
     try {
-      // 1. Create Contact
-      const { data: contactResponse } = await api.post('/contacts', formData);
-      const newContact = contactResponse.contact;
+      if (editingId) {
+        await api.patch(`/contacts/${editingId}`, formData);
+        setShowModal(false);
+        setEditingId(null);
+        setFormData(initialFormData);
+        setImagePreview(null);
+        setCreatePortalUser(false);
+        fetchContacts();
+        return;
+      }
 
-      // 2. If checked, Create User (Invite)
+      const { data: contactResponse } = await api.post('/contacts', formData);
+      const newContact =
+        contactResponse.data?.contact || contactResponse.contact;
+
       if (createPortalUser) {
         try {
           await api.post('/users', {
@@ -138,7 +204,7 @@ export default function Contacts() {
             name: newContact.name,
             role: 'PORTAL_USER',
             contactId: newContact.id,
-            loginId: newContact.email, // Use email as loginId by default
+            loginId: newContact.email,
           });
           alert('Contact created and Portal User invitation sent!');
         } catch (userErr) {
@@ -147,8 +213,6 @@ export default function Contacts() {
             `Contact created, but failed to invite user: ${userErr.response?.data?.message || userErr.message}`,
           );
         }
-      } else {
-        // alert('Contact created successfully');
       }
 
       setShowModal(false);
@@ -159,7 +223,7 @@ export default function Contacts() {
     } catch (err) {
       console.error(err);
       alert(
-        'Failed to create contact: ' +
+        'Failed to save contact: ' +
           (err.response?.data?.message || err.message),
       );
     } finally {
@@ -236,6 +300,8 @@ export default function Contacts() {
         onCreate={handleCreate}
         onSearch={handleSearch}
         onPageChange={handlePageChange}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
       />
 
       {/* Create Contact Modal */}
@@ -246,7 +312,7 @@ export default function Contacts() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className='modal-header'>
-              <h2>Contact Master</h2>
+              <h2>{editingId ? 'Edit Contact' : 'Contact Master'}</h2>
               <button className='close-btn' onClick={() => setShowModal(false)}>
                 <X size={20} />
               </button>
@@ -284,7 +350,7 @@ export default function Contacts() {
                     <div className='form-group'>
                       <label>Phone</label>
                       <input
-                        type='text'
+                        type='number'
                         placeholder='Phone number'
                         value={formData.phone}
                         onChange={(e) =>
@@ -345,48 +411,50 @@ export default function Contacts() {
                       </div>
                     </div>
 
-                    <div
-                      className='form-group checkbox-group'
-                      style={{ marginTop: '1rem' }}
-                    >
-                      <label
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          cursor: 'pointer',
-                        }}
+                    {!editingId && (
+                      <div
+                        className='form-group checkbox-group'
+                        style={{ marginTop: '1rem' }}
                       >
-                        <input
-                          type='checkbox'
-                          checked={createPortalUser}
-                          onChange={(e) =>
-                            setCreatePortalUser(e.target.checked)
-                          }
-                          style={{ width: 'auto' }}
-                        />
-                        <span
+                        <label
                           style={{
-                            fontWeight: '600',
-                            color: 'var(--accent-600)',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            cursor: 'pointer',
                           }}
                         >
-                          Create Portal User & Send Invite
-                        </span>
-                      </label>
-                      {createPortalUser && (
-                        <p
-                          style={{
-                            fontSize: '0.75rem',
-                            color: '#64748b',
-                            marginLeft: '1.5rem',
-                            marginTop: '0.25rem',
-                          }}
-                        >
-                          An invitation will be sent to the email address.
-                        </p>
-                      )}
-                    </div>
+                          <input
+                            type='checkbox'
+                            checked={createPortalUser}
+                            onChange={(e) =>
+                              setCreatePortalUser(e.target.checked)
+                            }
+                            style={{ width: 'auto' }}
+                          />
+                          <span
+                            style={{
+                              fontWeight: '600',
+                              color: 'var(--accent-600)',
+                            }}
+                          >
+                            Create Portal User & Send Invite
+                          </span>
+                        </label>
+                        {createPortalUser && (
+                          <p
+                            style={{
+                              fontSize: '0.75rem',
+                              color: '#64748b',
+                              marginLeft: '1.5rem',
+                              marginTop: '0.25rem',
+                            }}
+                          >
+                            An invitation will be sent to the email address.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Right Column - Image & Tags */}
@@ -507,6 +575,11 @@ export default function Contacts() {
                     <>
                       <Loader2 size={18} className='spin' />
                       <span>Saving...</span>
+                    </>
+                  ) : editingId ? (
+                    <>
+                      <Pencil size={18} />
+                      <span>Update Contact</span>
                     </>
                   ) : (
                     <>
