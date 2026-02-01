@@ -1,9 +1,9 @@
-import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../middleware/authMiddleware';
-import prisma from '../config/database';
-import { autoAnalyticalService } from '../services/autoAnalyticalService';
-import { ApiError } from '../middleware/errorHandler';
-import { v4 as uuidv4 } from 'uuid';
+import { Request, Response, NextFunction } from "express";
+import { AuthRequest } from "../middleware/authMiddleware";
+import prisma from "../config/database";
+import { autoAnalyticalService } from "../services/autoAnalyticalService";
+import { ApiError } from "../middleware/errorHandler";
+import { v4 as uuidv4 } from "uuid";
 
 // Helper to calculate line totals
 const calculateLineTotals = (
@@ -20,23 +20,23 @@ const calculateLineTotals = (
 // Helper to generate PO number
 const generatePONumber = async (): Promise<string> => {
   const today = new Date();
-  const prefix = `PO${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const prefix = `PO${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}`;
 
   const lastPO = await prisma.purchaseOrder.findFirst({
     where: { poNumber: { startsWith: prefix } },
-    orderBy: { poNumber: 'desc' },
+    orderBy: { poNumber: "desc" },
   });
 
   const sequence = lastPO ? parseInt(lastPO.poNumber.slice(-4)) + 1 : 1;
 
-  return `${prefix}${String(sequence).padStart(4, '0')}`;
+  return `${prefix}${String(sequence).padStart(4, "0")}`;
 };
 
 // Helper to find active budget for a given date
 const findActiveBudgetForDate = async (date: Date) => {
   return prisma.budget.findFirst({
     where: {
-      status: { in: ['CONFIRMED', 'VALIDATED'] },
+      status: { in: ["CONFIRMED", "VALIDATED"] },
       dateFrom: { lte: date },
       dateTo: { gte: date },
     },
@@ -60,7 +60,7 @@ const updateBudgetLineExpense = async (
     where: {
       budgetId,
       analyticalAccountId,
-      type: 'EXPENSE',
+      type: "EXPENSE",
     },
   });
 
@@ -79,7 +79,7 @@ const updateBudgetLineExpense = async (
 // Helper to validate budget limits for expense lines
 interface BudgetValidationResult {
   isValid: boolean;
-  errorType: 'EXCEEDED' | 'NO_BUDGET_LINE' | null;
+  errorType: "EXCEEDED" | "NO_BUDGET_LINE" | null;
   exceededErrors: Array<{
     analyticalAccountName: string;
     plannedAmount: number;
@@ -94,7 +94,7 @@ const validateBudgetLimits = async (
   budget: any,
   expensesByAccount: Map<string, { amount: number; accountName: string }>,
 ): Promise<BudgetValidationResult> => {
-  const exceededErrors: BudgetValidationResult['exceededErrors'] = [];
+  const exceededErrors: BudgetValidationResult["exceededErrors"] = [];
   const missingBudgetLines: string[] = [];
 
   for (const [
@@ -105,7 +105,7 @@ const validateBudgetLimits = async (
     const budgetLine = budget.budgetLines.find(
       (line: any) =>
         line.analyticalAccountId === analyticalAccountId &&
-        line.type === 'EXPENSE',
+        line.type === "EXPENSE",
     );
 
     if (!budgetLine) {
@@ -129,11 +129,11 @@ const validateBudgetLimits = async (
   }
 
   // Determine error type - prioritize missing budget lines
-  let errorType: BudgetValidationResult['errorType'] = null;
+  let errorType: BudgetValidationResult["errorType"] = null;
   if (missingBudgetLines.length > 0) {
-    errorType = 'NO_BUDGET_LINE';
+    errorType = "NO_BUDGET_LINE";
   } else if (exceededErrors.length > 0) {
-    errorType = 'EXCEEDED';
+    errorType = "EXCEEDED";
   }
 
   return {
@@ -145,22 +145,26 @@ const validateBudgetLimits = async (
 };
 
 export const purchaseOrderController = {
-    /**
-     * Get all purchase orders
-     * GET /api/purchase-orders
-     */
-    async getAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-        try {
-            const { page = 1, limit = 20, search, status, vendorId } = req.query;
-            const skip = (Number(page) - 1) * Number(limit);
+  /**
+   * Get all purchase orders
+   * GET /api/purchase-orders
+   */
+  async getAll(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const { page = 1, limit = 20, search, status, vendorId } = req.query;
+      const skip = (Number(page) - 1) * Number(limit);
 
       const where: any = {};
 
       if (search) {
         where.OR = [
-          { poNumber: { contains: String(search), mode: 'insensitive' } },
+          { poNumber: { contains: String(search), mode: "insensitive" } },
           {
-            vendor: { name: { contains: String(search), mode: 'insensitive' } },
+            vendor: { name: { contains: String(search), mode: "insensitive" } },
           },
         ];
       }
@@ -169,14 +173,14 @@ export const purchaseOrderController = {
         where.status = String(status);
       }
 
-            if (req.user?.role === 'PORTAL_USER') {
-                if (!req.user.contactId) {
-                    throw new ApiError('Portal user has no linked contact', 400);
-                }
-                where.vendorId = req.user.contactId;
-            } else if (vendorId) {
-                where.vendorId = String(vendorId);
-            }
+      if (req.user?.role === "PORTAL_USER") {
+        if (!req.user.contactId) {
+          throw new ApiError("Portal user has no linked contact", 400);
+        }
+        where.vendorId = req.user.contactId;
+      } else if (vendorId) {
+        where.vendorId = String(vendorId);
+      }
 
       const [orders, total] = await Promise.all([
         prisma.purchaseOrder.findMany({
@@ -191,13 +195,13 @@ export const purchaseOrderController = {
           },
           skip,
           take: Number(limit),
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         }),
         prisma.purchaseOrder.count({ where }),
       ]);
 
       res.status(200).json({
-        status: 'success',
+        status: "success",
         data: {
           orders,
           pagination: {
@@ -242,16 +246,19 @@ export const purchaseOrderController = {
       });
 
       if (!order) {
-        throw new ApiError('Purchase order not found', 404);
+        throw new ApiError("Purchase order not found", 404);
       }
 
-            // Guardrail: Portal User check
-            if (req.user?.role === 'PORTAL_USER' && order.vendorId !== req.user.contactId) {
-                throw new ApiError('Unauthorized access to this resource', 403);
-            }
+      // Guardrail: Portal User check
+      if (
+        req.user?.role === "PORTAL_USER" &&
+        order.vendorId !== req.user.contactId
+      ) {
+        throw new ApiError("Unauthorized access to this resource", 403);
+      }
 
       res.status(200).json({
-        status: 'success',
+        status: "success",
         data: { order },
       });
     } catch (error) {
@@ -276,7 +283,7 @@ export const purchaseOrderController = {
         throw new ApiError(
           `No active budget found for the selected date (${poDate.toLocaleDateString()}). Please create a budget that covers this period before creating a purchase order.`,
           400,
-          'NO_BUDGET_FOUND',
+          "NO_BUDGET_FOUND",
         );
       }
 
@@ -299,7 +306,7 @@ export const purchaseOrderController = {
               productId: line.productId,
               contactId: vendorId,
               amount: totals.total,
-              type: 'PURCHASE',
+              type: "PURCHASE",
             });
             analyticalAccountId = match.analyticalAccountId;
             isAutoAssigned = match.isAutoAssigned;
@@ -353,7 +360,7 @@ export const purchaseOrderController = {
         if (line.analyticalAccountId) {
           const current = expensesByAccount.get(line.analyticalAccountId);
           const accountName =
-            accountNameMap.get(line.analyticalAccountId) || 'Unknown';
+            accountNameMap.get(line.analyticalAccountId) || "Unknown";
           if (current) {
             current.amount += line.total;
           } else {
@@ -372,13 +379,13 @@ export const purchaseOrderController = {
       );
 
       if (!budgetValidation.isValid) {
-        if (budgetValidation.errorType === 'NO_BUDGET_LINE') {
+        if (budgetValidation.errorType === "NO_BUDGET_LINE") {
           const missingAccounts =
-            budgetValidation.missingBudgetLines.join(', ');
+            budgetValidation.missingBudgetLines.join(", ");
           throw new ApiError(
             `No budget allocated for the following cost centers: ${missingAccounts}. Please add budget lines for these cost centers before creating this purchase order.`,
             400,
-            'NO_BUDGET_LINE',
+            "NO_BUDGET_LINE",
           );
         } else {
           const errorDetails = budgetValidation.exceededErrors
@@ -386,12 +393,12 @@ export const purchaseOrderController = {
               (err) =>
                 `${err.analyticalAccountName}: Budget ₹${err.plannedAmount.toLocaleString()}, Spent ₹${err.currentSpent.toLocaleString()}, This PO ₹${err.newExpense.toLocaleString()} (Exceeds by ₹${err.wouldExceedBy.toLocaleString()})`,
             )
-            .join('\n');
+            .join("\n");
 
           throw new ApiError(
             `Purchase order exceeds budget limits:\n${errorDetails}`,
             400,
-            'BUDGET_EXCEEDED',
+            "BUDGET_EXCEEDED",
           );
         }
       }
@@ -430,8 +437,8 @@ export const purchaseOrderController = {
       }
 
       res.status(201).json({
-        status: 'success',
-        message: 'Purchase order created successfully',
+        status: "success",
+        message: "Purchase order created successfully",
         data: { order, budgetUpdated: true },
       });
     } catch (error) {
@@ -447,6 +454,22 @@ export const purchaseOrderController = {
     try {
       const { id } = req.params;
       const { vendorId, orderDate, notes, status } = req.body;
+
+      const ordercheck = await prisma.purchaseOrder.findUnique({
+        where: { id },
+        include: { vendorBills: true },
+      });
+
+      if (!ordercheck) {
+        throw new ApiError("Purchase order not found", 404);
+      }
+
+      if (status === "CANCELLED" && ordercheck.vendorBills.length > 0) {
+        throw new ApiError(
+          "Cannot cancel purchase order with associated bills",
+          400,
+        );
+      }
 
       const order = await prisma.purchaseOrder.update({
         where: { id },
@@ -465,8 +488,8 @@ export const purchaseOrderController = {
       });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Purchase order updated successfully',
+        status: "success",
+        message: "Purchase order updated successfully",
         data: { order },
       });
     } catch (error) {
@@ -488,22 +511,22 @@ export const purchaseOrderController = {
       });
 
       if (!order) {
-        throw new ApiError('Purchase order not found', 404);
+        throw new ApiError("Purchase order not found", 404);
       }
 
       if (order.vendorBills.length > 0) {
-        throw new ApiError('Cannot delete order with associated bills', 400);
+        throw new ApiError("Cannot delete order with associated bills", 400);
       }
 
-      if (order.status !== 'DRAFT') {
-        throw new ApiError('Only draft orders can be deleted', 400);
+      if (order.status !== "DRAFT") {
+        throw new ApiError("Only draft orders can be deleted", 400);
       }
 
       await prisma.purchaseOrder.delete({ where: { id } });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Purchase order deleted successfully',
+        status: "success",
+        message: "Purchase order deleted successfully",
       });
     } catch (error) {
       next(error);
@@ -522,14 +545,30 @@ export const purchaseOrderController = {
     try {
       const { id } = req.params;
 
+      const orderCheck = await prisma.purchaseOrder.findUnique({
+        where: { id },
+        include: { vendorBills: true },
+      });
+
+      if (!orderCheck) {
+        throw new ApiError("Purchase order not found", 404);
+      }
+
+      if (orderCheck.vendorBills.length > 0) {
+        throw new ApiError(
+          "Cannot confirm purchase order that has already been billed",
+          400,
+        );
+      }
+
       const order = await prisma.purchaseOrder.update({
         where: { id },
-        data: { status: 'CONFIRMED' },
+        data: { status: "CONFIRMED" },
       });
 
       res.status(200).json({
-        status: 'success',
-        message: 'Purchase order confirmed',
+        status: "success",
+        message: "Purchase order confirmed",
         data: { order },
       });
     } catch (error) {
@@ -558,23 +597,23 @@ export const purchaseOrderController = {
       });
 
       if (!order) {
-        throw new ApiError('Purchase order not found', 404);
+        throw new ApiError("Purchase order not found", 404);
       }
 
       // Generate bill number
       const today = new Date();
-      const prefix = `BILL${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`;
+      const prefix = `BILL${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}`;
 
       const lastBill = await prisma.vendorBill.findFirst({
         where: { billNumber: { startsWith: prefix } },
-        orderBy: { billNumber: 'desc' },
+        orderBy: { billNumber: "desc" },
       });
 
       const sequence = lastBill
         ? parseInt(lastBill.billNumber.slice(-4)) + 1
         : 1;
 
-      const billNumber = `${prefix}${String(sequence).padStart(4, '0')}`;
+      const billNumber = `${prefix}${String(sequence).padStart(4, "0")}`;
 
       const bill = await prisma.vendorBill.create({
         data: {
@@ -612,12 +651,12 @@ export const purchaseOrderController = {
       // Update PO status
       await prisma.purchaseOrder.update({
         where: { id },
-        data: { status: 'BILLED' },
+        data: { status: "BILLED" },
       });
 
       res.status(201).json({
-        status: 'success',
-        message: 'Vendor bill created from purchase order',
+        status: "success",
+        message: "Vendor bill created from purchase order",
         data: { bill },
       });
     } catch (error) {
