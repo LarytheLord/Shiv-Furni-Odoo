@@ -29,6 +29,64 @@ const generateSONumber = async (): Promise<string> => {
     return `${prefix}${String(sequence).padStart(4, '0')}`;
 };
 
+// Helper to find active budget for a given date
+const findActiveBudgetForDate = async (date: Date) => {
+    return prisma.budget.findFirst({
+        where: {
+            status: { in: ['CONFIRMED', 'VALIDATED'] },
+            dateFrom: { lte: date },
+            dateTo: { gte: date },
+        },
+        include: {
+            budgetLines: {
+                include: {
+                    analyticalAccount: true,
+                },
+            },
+        },
+    });
+};
+
+// Helper to update budget line achieved amount for INCOME
+const updateBudgetLineIncome = async (
+    analyticalAccountId: string,
+    amount: number,
+    budgetId: string,
+) => {
+    console.log(`[SO Budget] Looking for INCOME budget line: budgetId=${budgetId}, analyticsId=${analyticalAccountId}, amount=${amount}`);
+    
+    // Find the INCOME budget line for this analytical account
+    const budgetLine = await prisma.budgetLine.findFirst({
+        where: {
+            budgetId: budgetId,
+            analyticalAccountId: analyticalAccountId,
+            type: 'INCOME',
+        },
+    });
+
+    console.log(`[SO Budget] Budget line found: ${budgetLine ? budgetLine.id : 'null'}`);
+
+    if (budgetLine) {
+        const currentAchieved = Number(budgetLine.achievedAmount) || 0;
+        const incrementAmount = Number(amount) || 0;
+        const newAchieved = currentAchieved + incrementAmount;
+        
+        console.log(`[SO Budget] Current achieved: ${currentAchieved}, increment: ${incrementAmount}, new total: ${newAchieved}`);
+        
+        // Use direct set instead of increment to ensure it works
+        await prisma.budgetLine.update({
+            where: { id: budgetLine.id },
+            data: {
+                achievedAmount: newAchieved,
+            },
+        });
+        console.log(`[SO Budget] Successfully updated achievedAmount to ${newAchieved}`);
+        return true;
+    }
+    console.log(`[SO Budget] No INCOME budget line found for analyticalAccountId: ${analyticalAccountId}`);
+    return false;
+};
+
 export const salesOrderController = {
     /**
      * Get all sales orders
@@ -144,7 +202,11 @@ export const salesOrderController = {
         try {
             const { customerId, orderDate, notes, lines } = req.body;
 
+            const soDate = orderDate ? new Date(orderDate) : new Date();
             const soNumber = await generateSONumber();
+
+            // Find active budget for the SO date (optional - not blocking like PO)
+            const activeBudget = await findActiveBudgetForDate(soDate);
 
             // Process lines with auto-analytical
             const processedLines = await Promise.all(
@@ -192,7 +254,7 @@ export const salesOrderController = {
                 data: {
                     soNumber,
                     customerId,
-                    orderDate: orderDate ? new Date(orderDate) : new Date(),
+                    orderDate: soDate,
                     notes,
                     ...orderTotals,
                     lines: {
@@ -210,10 +272,35 @@ export const salesOrderController = {
                 }
             });
 
+            // Update budget line income for each line with an analytical account
+            let budgetUpdated = false;
+            if (activeBudget) {
+                console.log(`[SO Budget] Found active budget: ${activeBudget.id} (${activeBudget.name})`);
+                console.log(`[SO Budget] Budget has ${activeBudget.budgetLines.length} lines`);
+                
+                for (const line of processedLines) {
+                    // Check for truthy AND non-empty string
+                    if (line.analyticalAccountId && line.analyticalAccountId.trim() !== '') {
+                        console.log(`[SO Budget] Updating INCOME for analytics: ${line.analyticalAccountId}, amount: ${line.total}`);
+                        const updated = await updateBudgetLineIncome(
+                            line.analyticalAccountId,
+                            line.total,
+                            activeBudget.id,
+                        );
+                        console.log(`[SO Budget] Update result: ${updated}`);
+                        if (updated) budgetUpdated = true;
+                    } else {
+                        console.log(`[SO Budget] Line has no analyticalAccountId, skipping`);
+                    }
+                }
+            } else {
+                console.log(`[SO Budget] No active budget found for date: ${soDate.toISOString()}`);
+            }
+
             res.status(201).json({
                 status: 'success',
                 message: 'Sales order created successfully',
-                data: { order }
+                data: { order, budgetUpdated }
             });
         } catch (error) {
             next(error);
@@ -299,6 +386,21 @@ export const salesOrderController = {
         try {
             const { id } = req.params;
 
+            // Get the existing order first
+            const existingOrder = await prisma.salesOrder.findUnique({
+                where: { id },
+                include: { lines: true }
+            });
+
+            if (!existingOrder) {
+                throw new ApiError('Sales order not found', 404);
+            }
+
+            if (existingOrder.status !== 'DRAFT') {
+                throw new ApiError('Only draft orders can be confirmed', 400);
+            }
+
+            // Update status to confirmed
             const order = await prisma.salesOrder.update({
                 where: { id },
                 data: { status: 'CONFIRMED' }
@@ -330,6 +432,10 @@ export const salesOrderController = {
 
             if (!order) {
                 throw new ApiError('Sales order not found', 404);
+            }
+
+            if (order.status !== 'CONFIRMED') {
+                throw new ApiError('Only confirmed orders can be converted to invoices', 400);
             }
 
             // Generate invoice number

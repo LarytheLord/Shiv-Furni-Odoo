@@ -1,638 +1,798 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import api from '../../../api/axios';
-import { Loader2, Printer, Send, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import api from "../../../api/axios";
+import { Loader2, Printer, Send, X } from "lucide-react";
 
 export default function VendorBillForm() {
-    const { id } = useParams();
-    const [searchParams] = useSearchParams();
-    const navigate = useNavigate();
-    const isNew = id === 'new';
-    const poId = searchParams.get('poId');
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const isNew = id === "new";
+  const poId = searchParams.get("poId");
 
-    const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [paymentData, setPaymentData] = useState({
-        paymentType: 'Send',
-        paymentDate: new Date().toISOString().split('T')[0],
-        paymentMethod: 'BANK_TRANSFER',
-        amount: 0,
-        notes: ''
-    });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    paymentType: "Send",
+    paymentDate: new Date().toISOString().split("T")[0],
+    paymentMethod: "BANK_TRANSFER",
+    amount: 0,
+    notes: "",
+  });
 
-    const [formData, setFormData] = useState({
-        billNo: '',
-        vendorId: '',
-        vendorName: '',
-        billReference: '',
-        billDate: new Date().toISOString().split('T')[0],
-        dueDate: '',
-        status: 'DRAFT',
-        paymentStatus: 'Not Paid',
-        paidViaCash: 0,
-        paidViaBank: 0,
-        purchaseOrderId: '',
-        lines: []
-    });
+  const [formData, setFormData] = useState({
+    billNo: "",
+    vendorId: "",
+    vendorName: "",
+    billReference: "",
+    billDate: new Date().toISOString().split("T")[0],
+    dueDate: "",
+    status: "DRAFT",
+    paymentStatus: "Not Paid",
+    paidViaCash: 0,
+    paidViaBank: 0,
+    purchaseOrderId: "",
+    lines: [],
+  });
 
-    // Fetch PO data to pre-fill the form
-    const fetchPOData = useCallback(async () => {
-        if (!poId) return;
-        
-        setLoading(true);
-        try {
-            const { data: response } = await api.get(`/purchase-orders/${poId}`);
-            const order = response.data?.order || response.order;
+  // Fetch PO data to pre-fill the form
+  const fetchPOData = useCallback(async () => {
+    if (!poId) return;
 
-            if (order) {
-                const today = new Date();
-                const dueDate = new Date(today);
-                dueDate.setDate(dueDate.getDate() + 30);
+    setLoading(true);
+    try {
+      const { data: response } = await api.get(`/purchase-orders/${poId}`);
+      const order = response.data?.order || response.order;
 
-                setFormData({
-                    billNo: '',
-                    vendorId: order.vendorId,
-                    vendorName: order.vendor?.name || '',
-                    billReference: order.poNumber || '',
-                    billDate: today.toISOString().split('T')[0],
-                    dueDate: dueDate.toISOString().split('T')[0],
-                    status: 'DRAFT',
-                    paymentStatus: 'Not Paid',
-                    paidViaCash: 0,
-                    paidViaBank: 0,
-                    purchaseOrderId: poId,
-                    lines: order.lines?.map((line, index) => ({
-                        id: line.id || index + 1,
-                        productId: line.productId,
-                        product: line.product?.name || '',
-                        analyticalAccountId: line.analyticalAccountId || '',
-                        budget: line.analyticalAccount?.name || '',
-                        qty: Number(line.quantity),
-                        price: Number(line.unitPrice),
-                        total: Number(line.total) || Number(line.quantity) * Number(line.unitPrice)
-                    })) || []
-                });
-            }
-        } catch (err) {
-            console.error('Failed to fetch PO data:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [poId]);
+      if (order) {
+        const today = new Date();
+        const dueDate = new Date(today);
+        dueDate.setDate(dueDate.getDate() + 30);
 
-    // Fetch existing bill data
-    const fetchBillData = useCallback(async () => {
-        if (isNew || !id) return;
-
-        setLoading(true);
-        try {
-            const { data: response } = await api.get(`/vendor-bills/${id}`);
-            const bill = response.data?.bill || response.bill;
-
-            if (bill) {
-                const paidCash = bill.payments?.filter(p => p.paymentMethod === 'CASH').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-                const paidBank = bill.payments?.filter(p => p.paymentMethod !== 'CASH').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-
-                setFormData({
-                    billNo: bill.billNumber,
-                    vendorId: bill.vendorId,
-                    vendorName: bill.vendor?.name || '',
-                    billReference: bill.purchaseOrder?.poNumber || '',
-                    billDate: new Date(bill.billDate).toISOString().split('T')[0],
-                    dueDate: new Date(bill.dueDate).toISOString().split('T')[0],
-                    status: bill.status,
-                    paymentStatus: Number(bill.amountDue) === 0 ? 'Paid' : Number(bill.amountDue) < Number(bill.total) ? 'Partial' : 'Not Paid',
-                    paidViaCash: paidCash,
-                    paidViaBank: paidBank,
-                    purchaseOrderId: bill.purchaseOrderId || '',
-                    lines: bill.lines?.map((line, index) => ({
-                        id: line.id || index + 1,
-                        productId: line.productId,
-                        product: line.product?.name || '',
-                        analyticalAccountId: line.analyticalAccountId || '',
-                        budget: line.analyticalAccount?.name || '',
-                        qty: Number(line.quantity),
-                        price: Number(line.unitPrice),
-                        total: Number(line.total)
-                    })) || []
-                });
-            }
-        } catch (err) {
-            console.error('Failed to fetch bill:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [id, isNew]);
-
-    useEffect(() => {
-        if (isNew && poId) {
-            fetchPOData();
-        } else if (!isNew) {
-            fetchBillData();
-        }
-    }, [isNew, poId, fetchPOData, fetchBillData]);
-
-    const calculateTotal = () => formData.lines.reduce((sum, l) => sum + l.total, 0);
-    const amountDue = calculateTotal() - formData.paidViaCash - formData.paidViaBank;
-
-    // Open payment modal
-    const openPaymentModal = () => {
-        setPaymentData({
-            paymentType: 'Send',
-            paymentDate: new Date().toISOString().split('T')[0],
-            paymentMethod: 'BANK_TRANSFER',
-            amount: amountDue,
-            notes: ''
+        setFormData({
+          billNo: "",
+          vendorId: order.vendorId,
+          vendorName: order.vendor?.name || "",
+          billReference: order.poNumber || "",
+          billDate: today.toISOString().split("T")[0],
+          dueDate: dueDate.toISOString().split("T")[0],
+          status: "DRAFT",
+          paymentStatus: "Not Paid",
+          paidViaCash: 0,
+          paidViaBank: 0,
+          purchaseOrderId: poId,
+          lines:
+            order.lines?.map((line, index) => ({
+              id: line.id || index + 1,
+              productId: line.productId,
+              product: line.product?.name || "",
+              analyticalAccountId: line.analyticalAccountId || "",
+              budget: line.analyticalAccount?.name || "",
+              qty: Number(line.quantity),
+              price: Number(line.unitPrice),
+              total:
+                Number(line.total) ||
+                Number(line.quantity) * Number(line.unitPrice),
+            })) || [],
         });
-        setShowPaymentModal(true);
-    };
+      }
+    } catch (err) {
+      console.error("Failed to fetch PO data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [poId]);
 
-    // Submit payment
-    const handlePaymentSubmit = async () => {
-        if (!id || isNew) {
-            alert('Please save the bill first');
-            return;
+  // Fetch existing bill data
+  const fetchBillData = useCallback(async () => {
+    if (isNew || !id) return;
+
+    setLoading(true);
+    try {
+      const { data: response } = await api.get(`/vendor-bills/${id}`);
+      const bill = response.data?.bill || response.bill;
+
+      if (bill) {
+        const paidCash =
+          bill.payments
+            ?.filter((p) => p.paymentMethod === "CASH")
+            .reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+        const paidBank =
+          bill.payments
+            ?.filter((p) => p.paymentMethod !== "CASH")
+            .reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+
+        setFormData({
+          billNo: bill.billNumber,
+          vendorId: bill.vendorId,
+          vendorName: bill.vendor?.name || "",
+          billReference: bill.purchaseOrder?.poNumber || "",
+          billDate: new Date(bill.billDate).toISOString().split("T")[0],
+          dueDate: new Date(bill.dueDate).toISOString().split("T")[0],
+          status: bill.status,
+          paymentStatus:
+            Number(bill.amountDue) === 0
+              ? "Paid"
+              : Number(bill.amountDue) < Number(bill.total)
+                ? "Partial"
+                : "Not Paid",
+          paidViaCash: paidCash,
+          paidViaBank: paidBank,
+          purchaseOrderId: bill.purchaseOrderId || "",
+          lines:
+            bill.lines?.map((line, index) => ({
+              id: line.id || index + 1,
+              productId: line.productId,
+              product: line.product?.name || "",
+              analyticalAccountId: line.analyticalAccountId || "",
+              budget: line.analyticalAccount?.name || "",
+              qty: Number(line.quantity),
+              price: Number(line.unitPrice),
+              total: Number(line.total),
+            })) || [],
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch bill:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, isNew]);
+
+  useEffect(() => {
+    if (isNew && poId) {
+      fetchPOData();
+    } else if (!isNew) {
+      fetchBillData();
+    }
+  }, [isNew, poId, fetchPOData, fetchBillData]);
+
+  const calculateTotal = () =>
+    formData.lines.reduce((sum, l) => sum + l.total, 0);
+  const amountDue =
+    calculateTotal() - formData.paidViaCash - formData.paidViaBank;
+
+  // Open payment modal
+  const openPaymentModal = () => {
+    setPaymentData({
+      paymentType: "Send",
+      paymentDate: new Date().toISOString().split("T")[0],
+      paymentMethod: "BANK_TRANSFER",
+      amount: amountDue,
+      notes: "",
+    });
+    setShowPaymentModal(true);
+  };
+
+  // Submit payment
+  const handlePaymentSubmit = async () => {
+    if (!id || isNew) {
+      alert("Please save the bill first");
+      return;
+    }
+
+    if (paymentData.amount <= 0) {
+      alert("Please enter a valid amount");
+      return;
+    }
+
+    if (paymentData.amount > amountDue) {
+      alert(`Amount cannot exceed amount due (${amountDue.toLocaleString()})`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.post("/bill-payments", {
+        vendorBillId: id,
+        paymentDate: paymentData.paymentDate,
+        amount: paymentData.amount,
+        paymentMethod: paymentData.paymentMethod,
+        notes: paymentData.notes,
+      });
+
+      // Refresh bill data
+      await fetchBillData();
+      setShowPaymentModal(false);
+    } catch (err) {
+      console.error("Failed to record payment:", err);
+      alert(err.response?.data?.message || "Failed to record payment");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save bill
+  const handleSave = async () => {
+    if (!formData.vendorId) {
+      alert("Please select a vendor");
+      return;
+    }
+    if (!formData.dueDate) {
+      alert("Please select a due date");
+      return;
+    }
+    if (formData.lines.length === 0) {
+      alert("Please add at least one line item");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        vendorId: formData.vendorId,
+        purchaseOrderId: formData.purchaseOrderId || undefined,
+        billDate: formData.billDate,
+        dueDate: formData.dueDate,
+        lines: formData.lines.map((line) => ({
+          productId: line.productId,
+          quantity: line.qty,
+          unitPrice: line.price,
+          analyticalAccountId: line.analyticalAccountId || undefined,
+        })),
+      };
+
+      if (isNew) {
+        const response = await api.post("/vendor-bills", payload);
+        const newBill = response.data?.data?.bill || response.data?.bill;
+        if (newBill?.id) {
+          navigate(`/admin/bills/${newBill.id}`);
+        } else {
+          navigate("/admin/bills");
         }
+      } else {
+        await api.patch(`/vendor-bills/${id}`, payload);
+        await fetchBillData();
+      }
+    } catch (err) {
+      console.error("Failed to save bill:", err);
+      alert(err.response?.data?.message || "Failed to save bill");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-        if (paymentData.amount <= 0) {
-            alert('Please enter a valid amount');
-            return;
+  // Confirm bill
+  const handleConfirm = async () => {
+    // Validate first
+    if (!formData.vendorId) {
+      alert("Please select a vendor");
+      return;
+    }
+    if (!formData.dueDate) {
+      alert("Please select a due date");
+      return;
+    }
+    if (formData.lines.length === 0) {
+      alert("Please add at least one line item");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (isNew) {
+        // First save the bill
+        const payload = {
+          vendorId: formData.vendorId,
+          purchaseOrderId: formData.purchaseOrderId || undefined,
+          billDate: formData.billDate,
+          dueDate: formData.dueDate,
+          lines: formData.lines.map((line) => ({
+            productId: line.productId,
+            quantity: line.qty,
+            unitPrice: line.price,
+            analyticalAccountId: line.analyticalAccountId || undefined,
+          })),
+        };
+
+        const response = await api.post("/vendor-bills", payload);
+        const newBill = response.data?.data?.bill || response.data?.bill;
+
+        if (newBill?.id) {
+          // Then confirm the newly created bill
+          await api.post(`/vendor-bills/${newBill.id}/confirm`);
+          navigate(`/admin/bills/${newBill.id}`);
+        } else {
+          navigate("/admin/bills");
         }
+      } else {
+        // For existing bills, just confirm
+        await api.post(`/vendor-bills/${id}/confirm`);
+        setFormData((prev) => ({ ...prev, status: "CONFIRMED" }));
+      }
+    } catch (err) {
+      console.error("Failed to confirm bill:", err);
+      alert(err.response?.data?.message || "Failed to confirm bill");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-        if (paymentData.amount > amountDue) {
-            alert(`Amount cannot exceed amount due (${amountDue.toLocaleString()})`);
-            return;
-        }
+  // Print bill
+  const handlePrint = async () => {
+    if (isNew || !id) {
+      alert("Please save the bill first");
+      return;
+    }
 
-        setSaving(true);
-        try {
-            await api.post('/bill-payments', {
-                vendorBillId: id,
-                paymentDate: paymentData.paymentDate,
-                amount: paymentData.amount,
-                paymentMethod: paymentData.paymentMethod,
-                notes: paymentData.notes
-            });
+    try {
+      const response = await api.get(`/vendor-bills/${id}/pdf`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${formData.billNo || "bill"}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Failed to generate PDF:", err);
+      alert("Failed to generate PDF");
+    }
+  };
 
-            // Refresh bill data
-            await fetchBillData();
-            setShowPaymentModal(false);
-        } catch (err) {
-            console.error('Failed to record payment:', err);
-            alert(err.response?.data?.message || 'Failed to record payment');
-        } finally {
-            setSaving(false);
-        }
-    };
+  // Get payment status
+  const getPaymentStatus = () => {
+    const total = calculateTotal();
+    const paid = formData.paidViaCash + formData.paidViaBank;
+    if (paid >= total) return "Paid";
+    if (paid > 0) return "Partial";
+    return "Not Paid";
+  };
 
-    // Save bill
-    const handleSave = async () => {
-        if (!formData.vendorId) {
-            alert('Please select a vendor');
-            return;
-        }
-        if (!formData.dueDate) {
-            alert('Please select a due date');
-            return;
-        }
-        if (formData.lines.length === 0) {
-            alert('Please add at least one line item');
-            return;
-        }
+  // Check if can pay
+  const canPay =
+    (formData.status === "CONFIRMED" || formData.status === "PARTIALLY_PAID") &&
+    getPaymentStatus() !== "Paid" &&
+    !isNew;
 
-        setSaving(true);
-        try {
-            const payload = {
-                vendorId: formData.vendorId,
-                purchaseOrderId: formData.purchaseOrderId || undefined,
-                billDate: formData.billDate,
-                dueDate: formData.dueDate,
-                lines: formData.lines.map(line => ({
-                    productId: line.productId,
-                    quantity: line.qty,
-                    unitPrice: line.price,
-                    analyticalAccountId: line.analyticalAccountId || undefined
-                }))
-            };
-
-            if (isNew) {
-                const response = await api.post('/vendor-bills', payload);
-                const newBill = response.data?.data?.bill || response.data?.bill;
-                if (newBill?.id) {
-                    navigate(`/admin/bills/${newBill.id}`);
-                } else {
-                    navigate('/admin/bills');
-                }
-            } else {
-                await api.patch(`/vendor-bills/${id}`, payload);
-                await fetchBillData();
-            }
-        } catch (err) {
-            console.error('Failed to save bill:', err);
-            alert(err.response?.data?.message || 'Failed to save bill');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    // Confirm bill
-    const handleConfirm = async () => {
-        // Validate first
-        if (!formData.vendorId) {
-            alert('Please select a vendor');
-            return;
-        }
-        if (!formData.dueDate) {
-            alert('Please select a due date');
-            return;
-        }
-        if (formData.lines.length === 0) {
-            alert('Please add at least one line item');
-            return;
-        }
-
-        setSaving(true);
-        try {
-            if (isNew) {
-                // First save the bill
-                const payload = {
-                    vendorId: formData.vendorId,
-                    purchaseOrderId: formData.purchaseOrderId || undefined,
-                    billDate: formData.billDate,
-                    dueDate: formData.dueDate,
-                    lines: formData.lines.map(line => ({
-                        productId: line.productId,
-                        quantity: line.qty,
-                        unitPrice: line.price,
-                        analyticalAccountId: line.analyticalAccountId || undefined
-                    }))
-                };
-
-                const response = await api.post('/vendor-bills', payload);
-                const newBill = response.data?.data?.bill || response.data?.bill;
-                
-                if (newBill?.id) {
-                    // Then confirm the newly created bill
-                    await api.post(`/vendor-bills/${newBill.id}/confirm`);
-                    navigate(`/admin/bills/${newBill.id}`);
-                } else {
-                    navigate('/admin/bills');
-                }
-            } else {
-                // For existing bills, just confirm
-                await api.post(`/vendor-bills/${id}/confirm`);
-                setFormData(prev => ({ ...prev, status: 'CONFIRMED' }));
-            }
-        } catch (err) {
-            console.error('Failed to confirm bill:', err);
-            alert(err.response?.data?.message || 'Failed to confirm bill');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    // Print bill
-    const handlePrint = async () => {
-        if (isNew || !id) {
-            alert('Please save the bill first');
-            return;
-        }
-
-        try {
-            const response = await api.get(`/vendor-bills/${id}/pdf`, { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `${formData.billNo || 'bill'}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        } catch (err) {
-            console.error('Failed to generate PDF:', err);
-            alert('Failed to generate PDF');
-        }
-    };
-
-    // Get payment status
-    const getPaymentStatus = () => {
-        const total = calculateTotal();
-        const paid = formData.paidViaCash + formData.paidViaBank;
-        if (paid >= total) return 'Paid';
-        if (paid > 0) return 'Partial';
-        return 'Not Paid';
-    };
-
-    // Check if can pay
-    const canPay = formData.status === 'CONFIRMED' && getPaymentStatus() !== 'Paid' && !isNew;
-
-    if (loading) {
-        return (
-            <div className="loading-container">
-                <Loader2 size={32} className="spin" />
-                <style>{`
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <Loader2 size={32} className="spin" />
+        <style>{`
                     .loading-container { display: flex; justify-content: center; align-items: center; height: 100vh; }
                     .spin { animation: spin 1s linear infinite; }
                     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <div className="vendor-bill-container">
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowPaymentModal(false)}
+        >
+          <div className="payment-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">
+                Payment - Pay/{new Date().getFullYear().toString().slice(-2)}
+                /0001
+              </span>
             </div>
-        );
-    }
 
-    return (
-        <div className="vendor-bill-container">
-            {/* Payment Modal */}
-            {showPaymentModal && (
-                <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
-                    <div className="payment-modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <span className="modal-title">Payment - Pay/{new Date().getFullYear().toString().slice(-2)}/0001</span>
-                        </div>
-                        
-                        <div className="modal-actions">
-                            <button className="btn-modal-action btn-pay-modal" onClick={handlePaymentSubmit} disabled={saving}>
-                                {saving ? <Loader2 size={14} className="spin" /> : null}
-                                Pay
-                            </button>
-                            <button className="btn-modal-action" onClick={() => setShowPaymentModal(false)}>Close</button>
-                        </div>
+            <div className="modal-actions">
+              <button
+                className="btn-modal-action btn-pay-modal"
+                onClick={handlePaymentSubmit}
+                disabled={saving}
+              >
+                {saving ? <Loader2 size={14} className="spin" /> : null}
+                Pay
+              </button>
+              <button
+                className="btn-modal-action"
+                onClick={() => setShowPaymentModal(false)}
+              >
+                Close
+              </button>
+            </div>
 
-                        <div className="modal-body">
-                            <div className="modal-grid">
-                                {/* Left Column */}
-                                <div className="modal-col">
-                                    <div className="modal-field">
-                                        <label>Payment Type</label>
-                                        <div className="radio-group">
-                                            <label className="radio-label">
-                                                <input 
-                                                    type="radio" 
-                                                    name="paymentType" 
-                                                    value="Send"
-                                                    checked={paymentData.paymentType === 'Send'}
-                                                    onChange={(e) => setPaymentData({...paymentData, paymentType: e.target.value})}
-                                                />
-                                                Send
-                                            </label>
-                                            <label className="radio-label">
-                                                <input 
-                                                    type="radio" 
-                                                    name="paymentType" 
-                                                    value="Receive"
-                                                    checked={paymentData.paymentType === 'Receive'}
-                                                    onChange={(e) => setPaymentData({...paymentData, paymentType: e.target.value})}
-                                                />
-                                                Receive
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div className="modal-field">
-                                        <label>Partner</label>
-                                        <input type="text" className="modal-input" value={formData.vendorName} readOnly />
-                                        <span className="field-hint">( auto fill partner name from Invoice/Bill)</span>
-                                    </div>
-                                    <div className="modal-field">
-                                        <label className="label-accent">Amount</label>
-                                        <input 
-                                            type="number" 
-                                            className="modal-input amount-input" 
-                                            value={paymentData.amount}
-                                            onChange={(e) => setPaymentData({...paymentData, amount: Number(e.target.value)})}
-                                        />
-                                        <span className="field-hint">( auto fill amount due from Invoice/Bill)</span>
-                                    </div>
-                                </div>
-
-                                {/* Right Column */}
-                                <div className="modal-col">
-                                    <div className="modal-field">
-                                        <label>Date</label>
-                                        <input 
-                                            type="date" 
-                                            className="modal-input" 
-                                            value={paymentData.paymentDate}
-                                            onChange={(e) => setPaymentData({...paymentData, paymentDate: e.target.value})}
-                                        />
-                                        <span className="field-hint">(Default Today Date)</span>
-                                    </div>
-                                    <div className="modal-field">
-                                        <label>Payment Via</label>
-                                        <select 
-                                            className="modal-input"
-                                            value={paymentData.paymentMethod}
-                                            onChange={(e) => setPaymentData({...paymentData, paymentMethod: e.target.value})}
-                                        >
-                                            <option value="BANK_TRANSFER">Bank</option>
-                                            <option value="CASH">Cash</option>
-                                        </select>
-                                        <span className="field-hint">(Default Bank can be adjustable to Cash)</span>
-                                    </div>
-                                    <div className="modal-field">
-                                        <label>Note</label>
-                                        <input 
-                                            type="text" 
-                                            className="modal-input" 
-                                            value={paymentData.notes}
-                                            onChange={(e) => setPaymentData({...paymentData, notes: e.target.value})}
-                                            placeholder="Alpha numeric ( text )"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            <div className="modal-body">
+              <div className="modal-grid">
+                {/* Left Column */}
+                <div className="modal-col">
+                  <div className="modal-field">
+                    <label>Payment Type</label>
+                    <div className="radio-group">
+                      <label className="radio-label">
+                        <input
+                          type="radio"
+                          name="paymentType"
+                          value="Send"
+                          checked={paymentData.paymentType === "Send"}
+                          onChange={(e) =>
+                            setPaymentData({
+                              ...paymentData,
+                              paymentType: e.target.value,
+                            })
+                          }
+                        />
+                        Send
+                      </label>
+                      <label className="radio-label disabled-option">
+                        <input
+                          type="radio"
+                          name="paymentType"
+                          value="Receive"
+                          checked={paymentData.paymentType === "Receive"}
+                          disabled={true}
+                          onChange={(e) =>
+                            setPaymentData({
+                              ...paymentData,
+                              paymentType: e.target.value,
+                            })
+                          }
+                        />
+                        Receive
+                      </label>
                     </div>
+                  </div>
+                  <div className="modal-field">
+                    <label>Partner</label>
+                    <input
+                      type="text"
+                      className="modal-input"
+                      value={formData.vendorName}
+                      readOnly
+                    />
+                    <span className="field-hint">
+                      ( auto fill partner name from Invoice/Bill)
+                    </span>
+                  </div>
+                  <div className="modal-field">
+                    <label className="label-accent">Amount</label>
+                    <input
+                      type="number"
+                      className="modal-input amount-input"
+                      value={paymentData.amount}
+                      onChange={(e) =>
+                        setPaymentData({
+                          ...paymentData,
+                          amount: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <span className="field-hint">
+                      ( auto fill amount due from Invoice/Bill)
+                    </span>
+                  </div>
                 </div>
+
+                {/* Right Column */}
+                <div className="modal-col">
+                  <div className="modal-field">
+                    <label>Date</label>
+                    <input
+                      type="date"
+                      className="modal-input"
+                      value={paymentData.paymentDate}
+                      onChange={(e) =>
+                        setPaymentData({
+                          ...paymentData,
+                          paymentDate: e.target.value,
+                        })
+                      }
+                    />
+                    <span className="field-hint">(Default Today Date)</span>
+                  </div>
+                  <div className="modal-field">
+                    <label>Payment Via</label>
+                    <select
+                      className="modal-input"
+                      value={paymentData.paymentMethod}
+                      onChange={(e) =>
+                        setPaymentData({
+                          ...paymentData,
+                          paymentMethod: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="BANK_TRANSFER">Bank</option>
+                      <option value="CASH">Cash</option>
+                    </select>
+                    <span className="field-hint">
+                      (Default Bank can be adjustable to Cash)
+                    </span>
+                  </div>
+                  <div className="modal-field">
+                    <label>Note</label>
+                    <input
+                      type="text"
+                      className="modal-input"
+                      value={paymentData.notes}
+                      onChange={(e) =>
+                        setPaymentData({
+                          ...paymentData,
+                          notes: e.target.value,
+                        })
+                      }
+                      placeholder="Alpha numeric ( text )"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Card */}
+      <div className="bill-card">
+        {/* Top Header Row */}
+        <div className="card-header">
+          <button
+            className="btn-new"
+            onClick={() => navigate("/admin/bills/new")}
+          >
+            New
+          </button>
+          <div className="header-right-btns">
+            <button className="btn-nav" onClick={() => navigate("/admin")}>
+              Home
+            </button>
+            <button
+              className="btn-nav"
+              onClick={() => navigate("/admin/bills")}
+            >
+              Back
+            </button>
+          </div>
+        </div>
+
+        {/* Bill Info Section */}
+        <div className="bill-info-section">
+          {/* Left Column */}
+          <div className="bill-info-left">
+            <div className="info-row">
+              <label className="info-label">Vendor Bill No.</label>
+              <div className="info-value">
+                <input
+                  type="text"
+                  className="erp-input-underline"
+                  value={formData.billNo || "(Auto-generated)"}
+                  readOnly
+                />
+              </div>
+            </div>
+            <div className="info-row">
+              <label className="info-label info-label-accent">
+                Vendor Name
+              </label>
+              <div className="info-value">
+                <input
+                  type="text"
+                  className="erp-input-underline"
+                  value={formData.vendorName}
+                  readOnly
+                />
+              </div>
+            </div>
+            <div className="info-row">
+              <label className="info-label info-label-accent">
+                Bill Reference
+              </label>
+              <div className="info-value">
+                <input
+                  type="text"
+                  className="erp-input-underline"
+                  value={formData.billReference}
+                  onChange={(e) =>
+                    setFormData({ ...formData, billReference: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="bill-info-right">
+            <div className="info-row">
+              <label className="info-label">Bill Date</label>
+              <div className="info-value">
+                <input
+                  type="date"
+                  className="erp-input-underline"
+                  value={formData.billDate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, billDate: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="info-row">
+              <label className="info-label">Due Date</label>
+              <div className="info-value">
+                <input
+                  type="date"
+                  className="erp-input-underline"
+                  value={formData.dueDate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, dueDate: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="info-row">
+              <label className="info-label">Status</label>
+              <div className="status-buttons">
+                <button
+                  className={`status-btn ${getPaymentStatus() === "Paid" ? "active" : ""}`}
+                >
+                  Paid
+                </button>
+                <button
+                  className={`status-btn ${getPaymentStatus() === "Partial" ? "active" : ""}`}
+                >
+                  Partial
+                </button>
+                <button
+                  className={`status-btn ${getPaymentStatus() === "Not Paid" ? "active" : ""}`}
+                >
+                  Not Paid
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons Row */}
+        <div className="action-buttons-row">
+          <div className="action-left">
+            {formData.status === "DRAFT" && (
+              <button
+                className="btn-action btn-confirm"
+                onClick={handleConfirm}
+                disabled={saving}
+              >
+                {saving ? <Loader2 size={14} className="spin" /> : null}
+                Confirm
+              </button>
             )}
+            <button className="btn-action" onClick={handlePrint}>
+              <Printer size={14} /> Print
+            </button>
+            <button className="btn-action">
+              <Send size={14} /> Send
+            </button>
+            <button
+              className="btn-action"
+              onClick={() => navigate("/admin/bills")}
+            >
+              <X size={14} /> Cancel
+            </button>
+            <button
+              className={`btn-action btn-pay ${canPay ? "" : "disabled"}`}
+              onClick={canPay ? openPaymentModal : undefined}
+              disabled={!canPay}
+            >
+              Pay
+            </button>
+            {/* <button
+              className="btn-action"
+              onClick={() => navigate("/admin/budgets")}
+            >
+              Budget
+            </button> */}
+          </div>
+          <div className="status-tabs">
+            <button
+              className={`status-tab ${formData.status === "DRAFT" ? "active" : ""}`}
+            >
+              Draft
+            </button>
+            <button
+              className={`status-tab ${formData.status === "CONFIRMED" ? "active" : ""}`}
+            >
+              Confirm
+            </button>
+            <button
+              className={`status-tab ${formData.status === "CANCELLED" ? "active" : ""}`}
+            >
+              Cancelled
+            </button>
+          </div>
+        </div>
 
-            {/* Main Card */}
-            <div className="bill-card">
-                {/* Top Header Row */}
-                <div className="card-header">
-                    <button className="btn-new" onClick={() => navigate('/admin/bills/new')}>New</button>
-                    <div className="header-right-btns">
-                        <button className="btn-nav" onClick={() => navigate('/admin')}>Home</button>
-                        <button className="btn-nav" onClick={() => navigate('/admin/bills')}>Back</button>
-                    </div>
-                </div>
+        {/* Products Table */}
+        <div className="products-table-container">
+          <table className="products-table">
+            <thead>
+              <tr>
+                <th className="col-sr">Sr. No.</th>
+                <th className="col-product">Product</th>
+                <th className="col-budget">Budget Analytics</th>
+                <th className="col-qty">
+                  <span className="col-number">1</span>Qty
+                </th>
+                <th className="col-price">
+                  <span className="col-number">2</span>Unit Price
+                </th>
+                <th className="col-total">
+                  <span className="col-number">3</span>Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {formData.lines.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="empty-message">
+                    No line items.{" "}
+                    {isNew &&
+                      !poId &&
+                      "Create from a Purchase Order to add items."}
+                  </td>
+                </tr>
+              ) : (
+                formData.lines.map((line, index) => (
+                  <tr key={line.id}>
+                    <td className="col-sr">{index + 1}</td>
+                    <td className="col-product">{line.product}</td>
+                    <td className="col-budget budget-value">{line.budget}</td>
+                    <td className="col-qty">{line.qty}</td>
+                    <td className="col-price">{line.price.toLocaleString()}</td>
+                    <td className="col-total">
+                      <span className="total-value">
+                        {line.total.toLocaleString()}
+                      </span>
+                      <span className="total-calc">
+                        ({line.qty} Qty × {line.price})
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="total-row">
+                <td colSpan="3" className="total-label">
+                  Total
+                </td>
+                <td></td>
+                <td></td>
+                <td className="grand-total">
+                  {calculateTotal().toLocaleString()}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
 
-                {/* Bill Info Section */}
-                <div className="bill-info-section">
-                    {/* Left Column */}
-                    <div className="bill-info-left">
-                        <div className="info-row">
-                            <label className="info-label">Vendor Bill No.</label>
-                            <div className="info-value">
-                                <input 
-                                    type="text" 
-                                    className="erp-input-underline" 
-                                    value={formData.billNo || '(Auto-generated)'}
-                                    readOnly
-                                />
-                            </div>
-                        </div>
-                        <div className="info-row">
-                            <label className="info-label info-label-accent">Vendor Name</label>
-                            <div className="info-value">
-                                <input 
-                                    type="text" 
-                                    className="erp-input-underline" 
-                                    value={formData.vendorName}
-                                    readOnly
-                                />
-                            </div>
-                        </div>
-                        <div className="info-row">
-                            <label className="info-label info-label-accent">Bill Reference</label>
-                            <div className="info-value">
-                                <input 
-                                    type="text" 
-                                    className="erp-input-underline" 
-                                    value={formData.billReference}
-                                    onChange={(e) => setFormData({ ...formData, billReference: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                    </div>
+        {/* Payment Summary */}
+        <div className="payment-summary">
+          <div className="payment-row">
+            <span className="payment-label">Paid Via Cash</span>
+            <span className="payment-value">
+              {formData.paidViaCash > 0
+                ? formData.paidViaCash.toLocaleString()
+                : ""}
+            </span>
+          </div>
+          <div className="payment-row">
+            <span className="payment-label">Paid Via Bank</span>
+            <span className="payment-value">
+              {formData.paidViaBank > 0
+                ? formData.paidViaBank.toLocaleString()
+                : ""}
+            </span>
+          </div>
+          <div className="payment-row amount-due">
+            <span className="payment-label">Amount Due</span>
+            <span className="payment-value due-value">
+              {amountDue.toLocaleString()}
+            </span>
+          </div>
+          <div className="payment-hint">(Total - Payment)</div>
+        </div>
+      </div>
 
-                    {/* Right Column */}
-                    <div className="bill-info-right">
-                        <div className="info-row">
-                            <label className="info-label">Bill Date</label>
-                            <div className="info-value">
-                                <input 
-                                    type="date" 
-                                    className="erp-input-underline" 
-                                    value={formData.billDate}
-                                    onChange={(e) => setFormData({ ...formData, billDate: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                        <div className="info-row">
-                            <label className="info-label">Due Date</label>
-                            <div className="info-value">
-                                <input 
-                                    type="date" 
-                                    className="erp-input-underline" 
-                                    value={formData.dueDate}
-                                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                        <div className="info-row">
-                            <label className="info-label">Status</label>
-                            <div className="status-buttons">
-                                <button className={`status-btn ${getPaymentStatus() === 'Paid' ? 'active' : ''}`}>Paid</button>
-                                <button className={`status-btn ${getPaymentStatus() === 'Partial' ? 'active' : ''}`}>Partial</button>
-                                <button className={`status-btn ${getPaymentStatus() === 'Not Paid' ? 'active' : ''}`}>Not Paid</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Action Buttons Row */}
-                <div className="action-buttons-row">
-                    <div className="action-left">
-                        <button 
-                            className="btn-action btn-confirm" 
-                            onClick={handleConfirm}
-                            disabled={saving}
-                        >
-                            {saving ? <Loader2 size={14} className="spin" /> : null}
-                            Confirm
-                        </button>
-                        <button className="btn-action" onClick={handlePrint}>
-                            <Printer size={14} /> Print
-                        </button>
-                        <button className="btn-action">
-                            <Send size={14} /> Send
-                        </button>
-                        <button className="btn-action" onClick={() => navigate('/admin/bills')}>
-                            <X size={14} /> Cancel
-                        </button>
-                        <button 
-                            className={`btn-action btn-pay ${canPay ? '' : 'disabled'}`}
-                            onClick={canPay ? openPaymentModal : undefined}
-                            disabled={!canPay}
-                        >
-                            Pay
-                        </button>
-                        <button className="btn-action" onClick={() => navigate('/admin/budgets')}>
-                            Budget
-                        </button>
-                    </div>
-                    <div className="status-tabs">
-                        <button className={`status-tab ${formData.status === 'DRAFT' ? 'active' : ''}`}>Draft</button>
-                        <button className={`status-tab ${formData.status === 'CONFIRMED' ? 'active' : ''}`}>Confirm</button>
-                        <button className={`status-tab ${formData.status === 'CANCELLED' ? 'active' : ''}`}>Cancelled</button>
-                    </div>
-                </div>
-
-                {/* Products Table */}
-                <div className="products-table-container">
-                    <table className="products-table">
-                        <thead>
-                            <tr>
-                                <th className="col-sr">Sr. No.</th>
-                                <th className="col-product">Product</th>
-                                <th className="col-budget">Budget Analytics</th>
-                                <th className="col-qty"><span className="col-number">1</span>Qty</th>
-                                <th className="col-price"><span className="col-number">2</span>Unit Price</th>
-                                <th className="col-total"><span className="col-number">3</span>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {formData.lines.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" className="empty-message">
-                                        No line items. {isNew && !poId && 'Create from a Purchase Order to add items.'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                formData.lines.map((line, index) => (
-                                    <tr key={line.id}>
-                                        <td className="col-sr">{index + 1}</td>
-                                        <td className="col-product">{line.product}</td>
-                                        <td className="col-budget budget-value">{line.budget}</td>
-                                        <td className="col-qty">{line.qty}</td>
-                                        <td className="col-price">{line.price.toLocaleString()}</td>
-                                        <td className="col-total">
-                                            <span className="total-value">{line.total.toLocaleString()}</span>
-                                            <span className="total-calc">({line.qty} Qty × {line.price})</span>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                        <tfoot>
-                            <tr className="total-row">
-                                <td colSpan="3" className="total-label">Total</td>
-                                <td></td>
-                                <td></td>
-                                <td className="grand-total">{calculateTotal().toLocaleString()}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-
-                {/* Payment Summary */}
-                <div className="payment-summary">
-                    <div className="payment-row">
-                        <span className="payment-label">Paid Via Cash</span>
-                        <span className="payment-value">{formData.paidViaCash > 0 ? formData.paidViaCash.toLocaleString() : ''}</span>
-                    </div>
-                    <div className="payment-row">
-                        <span className="payment-label">Paid Via Bank</span>
-                        <span className="payment-value">{formData.paidViaBank > 0 ? formData.paidViaBank.toLocaleString() : ''}</span>
-                    </div>
-                    <div className="payment-row amount-due">
-                        <span className="payment-label">Amount Due</span>
-                        <span className="payment-value due-value">{amountDue.toLocaleString()}</span>
-                    </div>
-                    <div className="payment-hint">(Total - Payment)</div>
-                </div>
-            </div>
-
-            <style>{`
+      <style>{`
                 .vendor-bill-container {
                     padding: 1.5rem;
                     min-height: 100vh;
@@ -1185,6 +1345,6 @@ export default function VendorBillForm() {
                     }
                 }
             `}</style>
-        </div>
-    );
+    </div>
+  );
 }
